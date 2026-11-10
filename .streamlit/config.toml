@@ -1,0 +1,7 @@
+# Only this computer may open the page (Streamlit's default is every network connection of the computer).
+[server]
+address = "127.0.0.1"
+
+# Streamlit sends usage statistics to its company by default; nothing may leave this machine, so they are off.
+[browser]
+gatherUsageStats = false

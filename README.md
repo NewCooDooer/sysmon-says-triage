@@ -18,6 +18,18 @@ source .venv/bin/activate     # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt
 ```
 
-## Run and test
+## Run
 
-Coming with the first code (milestone M1).
+```bash
+streamlit run app.py
+```
+
+It prints its address. Open it and choose a Sysmon log (`.evtx`); the log is read on this computer only.
+
+## Test
+
+```bash
+python -m pytest
+```
+
+No network needed. To also test a real log: `SAMPLE_LOG=/path/to/events.evtx python -m pytest`.

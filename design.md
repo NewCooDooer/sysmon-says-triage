@@ -64,6 +64,7 @@ belong to the portals' outside services (the providers' published figures, check
 - **Results arrive as a live feed in batches:** the first batch is every file meeting a critical rule, capped in time; then the page offers the next batch with its estimated time. Nothing is skipped silently.
 - **While waiting for VirusTotal's next slot, the app does the IP and domain lookups:** all three lookups progress together with no extra machinery.
 - **No Claude or other AI inside the tool:** nothing private can reach it because it is not in the pipeline.
+- **The page answers this computer only, and Streamlit's usage statistics are off:** otherwise the page itself would send data out.
 - **Logs, the lookup cache and the sent record never go into git.**
 
 ## Milestones
