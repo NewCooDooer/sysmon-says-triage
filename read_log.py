@@ -9,20 +9,39 @@ NS = {"e": "http://schemas.microsoft.com/win/2004/08/events/event"}
 
 SYSMON = "Microsoft-Windows-Sysmon"
 
-# The Sysmon event types this app talks about, by number. Any other number is shown as "Sysmon event N".
+# Every Sysmon event type, by number, named as in Microsoft's own table:
+# https://learn.microsoft.com/en-us/sysinternals/downloads/sysmon (checked 2026-11-10). A number not here is shown as "Sysmon event N".
 EVENT_NAMES = {
-    1: "Process started",
-    3: "Network connection",
-    4: "Sysmon started or stopped",
-    5: "Process ended",
-    7: "Image (DLL) loaded",
-    8: "Remote thread created",
+    1: "Process Create",
+    2: "File creation time",
+    3: "Network connection detected",
+    4: "Sysmon service state change",
+    5: "Process terminated",
+    6: "Driver Loaded",
+    7: "Image loaded",
+    8: "CreateRemoteThread detected",
+    9: "RawAccessRead detected",
+    10: "Process accessed",
     11: "File created",
-    12: "Registry key created or deleted",
+    12: "Registry object added or deleted",
     13: "Registry value set",
-    15: "File stream created (download marker)",
+    14: "Registry object renamed",
+    15: "File stream created",
+    16: "Sysmon configuration change",
+    17: "Named pipe created",
+    18: "Named pipe connected",
+    19: "WMI filter",
+    20: "WMI consumer",
+    21: "WMI consumer filter",
     22: "DNS query",
-    255: "Sysmon's own error",
+    23: "File Delete archived",
+    24: "New content in the clipboard",
+    25: "Process image change",
+    26: "File Delete logged",
+    27: "File Block Executable",
+    28: "File Block Shredding",
+    29: "File Executable Detected",
+    255: "Error",
 }
 
 

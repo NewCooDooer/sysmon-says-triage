@@ -38,8 +38,9 @@ def test_hashes_are_split_by_type_and_lowercased():
     assert read_log.split_hashes("-") == {}
 
 
-def test_event_names_have_a_fallback():
-    assert read_log.event_name(22) == "DNS query"
+def test_every_official_event_type_has_a_name_and_others_have_a_fallback():
+    assert sorted(read_log.EVENT_NAMES) == list(range(1, 30)) + [255]  # Microsoft's list: 1 to 29, plus 255
+    assert read_log.event_name(10) == "Process accessed"
     assert read_log.event_name(999) == "Sysmon event 999"
 
 
@@ -52,7 +53,7 @@ def test_the_summary_counts_types_and_collects_names_and_addresses():
     ]]
     summary = read_log.summarize(events)
     assert summary["events"] == 4
-    assert summary["by_type"] == {"Process started": 2, "Network connection": 1, "DNS query": 1}
+    assert summary["by_type"] == {"Process Create": 2, "Network connection detected": 1, "DNS query": 1}
     assert summary["programs"] == ["C:\\Windows\\System32\\cmd.exe"]  # the same program twice counts once
     assert summary["hash_types"] == ["MD5", "SHA256"]
     assert summary["domains"] == ["example.com"]  # lowercased, trailing dot dropped
