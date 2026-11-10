@@ -1,0 +1,15 @@
+# Real logs and anything made from them stay on this computer: never commit them
+*.evtx
+logs/
+sent_record.csv
+lookup_cache.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+
+# Editors and macOS
+.DS_Store
+.vscode/
