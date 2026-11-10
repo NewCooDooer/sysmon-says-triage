@@ -37,7 +37,8 @@ events.evtx --> Sysmon Says Triage (Streamlit, this repo) --HTTP--> hash portal 
 
 All three use 0 = least risk and 100 = most. The labels differ, so the app shows each portal's own label and never turns
 "no known bad" into "safe". Readiness: the hash and DNS portals have a health route; the IP portal is asked about a private
-address, which its contract answers without contacting any outside service.
+address, which its contract answers without contacting any outside service. A refusal (400) or the IP portal's "every source
+failed" (503) is shown as such, never as a verdict.
 
 ## Data sources: keys, limits and terms
 
@@ -54,6 +55,9 @@ belong to the portals' outside services (the providers' published figures, check
 ## Main decisions
 
 - **One Streamlit app plus plain Python files, no server of our own:** this app is a client of the portals; nobody needs to call it.
+- **Nothing leaves the computer until the analyst presses the lookup button:** the page first shows what will be sent and what stays local, with the reason for each.
+- **Only one function sends a value from the log, and it writes the value to the local sent record before sending it:** nothing can be sent without being recorded.
+- **Requests towards the same outside service keep a minimum gap:** the IP and domain portals both reach rdap.org, and a burst of lookups made it refuse, which raised the portals' scores.
 - **Privacy gate, six rules:** only public IP addresses are sent; a name without a dot, with an internal ending, or that resolved to a private address stays local; only hashes of programs are sent; everything sent is written to a local record.
 - **Every rule works from the log itself, with no setup:** logs come from different organisations, and a fixed settings file would be wrong for every other one.
 - **When a log lacks something, a rule fails towards checking more,** never towards hiding something.
