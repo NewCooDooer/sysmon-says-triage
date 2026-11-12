@@ -76,6 +76,7 @@ belong to the portals' outside services (the providers' published figures, check
 - **The page answers this computer only, and Streamlit's usage statistics are off:** otherwise the page itself would send data out.
 - **History is kept per computer, as Sysmon names it:** no setup, and organisations never mix.
 - **The same file uploaded twice counts once,** recognised by its fingerprint.
+- **First and last seen are the log's own event times, not the upload time:** they say when something happened.
 - **Only indicators never checked before are looked up:** repeat uploads cost almost nothing, which also tames VirusTotal's limit.
 - **Retro-hunting runs when the analyst presses a button, not on a timer:** nothing leaves without a button press.
 - **The dashboard interprets changes; it does not predict:** a few uploads can't support a forecast.

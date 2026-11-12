@@ -5,10 +5,12 @@ Streamlit runs this whole file again, from top to bottom, every time the page ch
 
 import os
 import tempfile
+from collections import Counter
 
 import streamlit as st
 
 import gate
+import history
 import portals
 import read_log
 
@@ -60,11 +62,14 @@ if upload is None:
 if st.session_state.get("log_id") != upload.file_id:  # a different log: forget the previous log's lookups
     st.session_state["log_id"] = upload.file_id
     st.session_state["results"] = []
+    st.session_state["history"] = None
 
 events = load(upload.getvalue())
 if not events:
     st.warning("This file has no Sysmon events in it.")
     st.stop()
+if st.session_state["history"] is None:  # once per chosen file, because Streamlit reruns this script on every click
+    st.session_state["history"] = history.add_upload(upload.getvalue(), events)
 
 summary = read_log.summarize(events)
 st.subheader("What we learned from this log")
@@ -77,6 +82,18 @@ st.caption(f"From {summary['first']} to {summary['last']} (UTC). "
 st.table({"Event type": list(summary["by_type"]), "Count": list(summary["by_type"].values())})
 show_list("Computers", summary["computers"])
 show_list("Programs that started", summary["programs"])
+
+st.subheader("History")
+for computer, found in st.session_state["history"].items():
+    if found["already"]:
+        st.write(f"**{computer}:** this file is already in history, so nothing was added ({found['uploads']} uploads so far).")
+    elif found["first"]:
+        st.write(f"**{computer}:** first upload for this computer, so everything is new.")
+    else:
+        counts = Counter(kind for kind, value in found["new"])
+        st.write(f"**{computer}:** upload {found['uploads']}. New since earlier uploads: "
+                 + (", ".join(f"{kind} {n}" for kind, n in counts.items()) or "nothing") + ".")
+        show_list(f"New for {computer}", [f"{kind}: {value}" for kind, value in found["new"]])
 
 st.subheader("The three portals")
 ready = {portal: portals.is_ready(portal) for portal in portals.URLS}

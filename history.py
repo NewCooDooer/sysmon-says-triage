@@ -1,0 +1,86 @@
+"""History per computer: each upload, and every indicator ever seen, kept in one local SQLite file (never in git).
+
+Plain SQL, no classes. Nothing here uses the network.
+"""
+
+import hashlib
+import json
+import sqlite3
+from datetime import datetime, timezone
+from pathlib import Path
+
+import read_log
+
+HISTORY_DB = Path(__file__).parent / "history.db"  # local only: listed in .gitignore
+
+TABLES = """
+CREATE TABLE IF NOT EXISTS uploads (computer TEXT, fingerprint TEXT, added_at TEXT, first_event TEXT, last_event TEXT,
+                                    counts TEXT, PRIMARY KEY (computer, fingerprint));
+CREATE TABLE IF NOT EXISTS sightings (computer TEXT, kind TEXT, value TEXT, first_seen TEXT, last_seen TEXT,
+                                      uploads INTEGER, PRIMARY KEY (computer, kind, value));
+"""
+
+
+def connect():
+    """Open the history file, creating the two tables the first time."""
+    db = sqlite3.connect(HISTORY_DB)
+    db.executescript(TABLES)
+    return db
+
+
+def fingerprint(file_bytes):
+    """A SHA-256 of the whole file: the same file always gives the same fingerprint."""
+    return hashlib.sha256(file_bytes).hexdigest()
+
+
+def indicators(events):
+    """Per computer: {(kind, value): (first time, last time)} for programs, SHA-256s, launches, IPs and domains."""
+    found = {}
+    for event in events:
+        fields = event["fields"]
+        items = []
+        if event["id"] == 1:
+            image, parent = fields.get("Image", ""), fields.get("ParentImage", "")
+            items.append(("program", image))
+            hashes = read_log.split_hashes(fields.get("Hashes", ""))
+            items.append(("hash", hashes.get("SHA256", "")))  # never the IMPHASH
+            if parent and image:
+                items.append(("launch", f"{parent} -> {image}"))
+        elif event["id"] == 3:
+            items.append(("ip", fields.get("DestinationIp", "")))
+        elif event["id"] == 22:
+            items.append(("domain", fields.get("QueryName", "").lower().rstrip(".")))
+        seen = found.setdefault(event["computer"], {})  # setdefault: this computer's dictionary, created if missing
+        for item in items:
+            if item[1]:  # skip empty values
+                first, last = seen.get(item, (event["time"], event["time"]))
+                seen[item] = (min(first, event["time"]), max(last, event["time"]))
+    return found
+
+
+def add_upload(file_bytes, events):
+    """Add a log to each of its computers' history. Gives back, per computer: how many uploads it now has, whether this
+    file was already there, whether it is the computer's first upload, and the indicators that are new for it."""
+    file_id, now = fingerprint(file_bytes), datetime.now(timezone.utc).isoformat(timespec="seconds")
+    results = {}
+    db = connect()
+    with db:  # saves every change together at the end, or none of them if something fails
+        for computer, seen in indicators(events).items():
+            already = db.execute("SELECT 1 FROM uploads WHERE computer = ? AND fingerprint = ?",
+                                 (computer, file_id)).fetchone()
+            known = set(db.execute("SELECT kind, value FROM sightings WHERE computer = ?", (computer,)).fetchall())
+            if not already:
+                summary = read_log.summarize([event for event in events if event["computer"] == computer])
+                db.execute("INSERT INTO uploads VALUES (?, ?, ?, ?, ?, ?)",
+                           (computer, file_id, now, summary["first"], summary["last"], json.dumps(summary["by_type"])))
+                for (kind, value), (first, last) in seen.items():
+                    db.execute("""INSERT INTO sightings VALUES (?, ?, ?, ?, ?, 1)
+                                  ON CONFLICT (computer, kind, value) DO UPDATE SET uploads = uploads + 1,
+                                      first_seen = min(first_seen, excluded.first_seen),
+                                      last_seen = max(last_seen, excluded.last_seen)""",
+                               (computer, kind, value, first, last))
+            count = db.execute("SELECT COUNT(*) FROM uploads WHERE computer = ?", (computer,)).fetchone()[0]
+            results[computer] = {"uploads": count, "already": bool(already), "first": not known,
+                                 "new": [] if already else sorted(set(seen) - known)}
+    db.close()
+    return results
