@@ -11,6 +11,7 @@ import portals
 
 IP_URL = re.compile(r"http://127\.0\.0\.1:5001/api/ip/.*")
 DOMAIN_URL = re.compile(r"http://127\.0\.0\.1:8010/api/v1/domain/.*")
+HASH_URL = re.compile(r"http://127\.0\.0\.1:8000/api/v1/hash/.*")
 
 
 @pytest.fixture(autouse=True)
@@ -92,3 +93,20 @@ def test_readiness_uses_a_private_address_for_the_ip_portal(mock):
     assert portals.is_ready("ip") is True
     assert portals.is_ready("domain") is False
     assert not portals.SENT_RECORD.exists()  # a readiness check sends nothing from the log, so nothing is recorded
+
+
+def test_a_hash_answer_uses_the_portals_verdict_and_a_refusal_is_not_a_crash(mock):
+    mock.add(responses.GET, HASH_URL, json={"sources": {}, "verdict": {"score": 90, "label": "malicious", "reasons": ["a"]}})
+    found = portals.ask_hash("aa11")
+    assert (found["status"], found["score"], found["label"], found["reasons"]) == ("answered", 90, "malicious", ["a"])
+    mock.replace(responses.GET, HASH_URL, status=400, json={"error": "Expected 32, 40 or 64 hex characters"})
+    assert portals.ask_hash("aa11")["message"] == "Expected 32, 40 or 64 hex characters"
+    mock.replace(responses.GET, HASH_URL, body=requests.ConnectionError("down"))
+    assert portals.ask_hash("aa11")["status"] == "error"
+
+
+def test_hash_lookups_keep_the_virustotal_gap(mock, quiet):
+    mock.add(responses.GET, HASH_URL, json={"verdict": {}})
+    portals.ask_hash("aa11")
+    portals.ask_hash("cc33")
+    assert len(quiet) == 1 and quiet[0] > 14  # the second hash waited about 15 seconds; the first did not wait

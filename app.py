@@ -12,6 +12,7 @@ import streamlit as st
 
 import dashboard
 import gate
+import hashes
 import history
 import portals
 import read_log
@@ -53,6 +54,10 @@ def gate_rows(summary, events):
     for name, answers in read_log.name_answers(events).items():
         allowed, reason = gate.may_send_name(name, answers)
         rows.append({"kind": "Domain name", "value": name, "allowed": allowed, "reason": reason})
+    for item in hashes.queue(events):  # a program's SHA-256 says nothing about the computer, so it may always be sent
+        reason = "fails: " + ", ".join(item["failed"]) if item["failed"] else "looks ordinary: waits for the second button"
+        rows.append({"kind": "File hash", "value": item["value"], "allowed": True, "reason": reason,
+                     "program": item["program"], "waits": not item["failed"]})
     return rows
 
 
@@ -64,6 +69,26 @@ def result_row(found):
                 "Why": "; ".join(found["reasons"])}
     return {"Kind": found["portal"], "Value": found["value"], "Portal's verdict": f"not looked up ({found['status']})",
             "Score (0 = least risk)": None, "Checked": None, "Why": found["message"]}
+
+
+ASK = {"IP address": portals.ask_ip, "Domain name": portals.ask_domain, "File hash": portals.ask_hash}
+
+
+def look_up(rows):
+    """Ask the right portal about each row, save each answer in history, keep the failures, then draw the page again."""
+    st.session_state["failed"] = []
+    bar = st.progress(0.0, text="Asking the portals (a new domain can take a minute; each hash waits for VirusTotal)...")
+    table_spot = st.empty()  # a placeholder that is redrawn after every answer, so results appear as they arrive
+    found_now = []
+    for done, row in enumerate(rows, start=1):
+        found = ASK[row["kind"]](row["value"])  # ASK[...] is the function for this kind; (row["value"]) calls it
+        history.save_answer(found)
+        found_now.append(found)
+        if found["status"] != "answered":
+            st.session_state["failed"].append(found)
+        bar.progress(done / len(rows), text=f"{done} of {len(rows)} looked up")
+        table_spot.table([result_row(f) for f in found_now])
+    st.rerun()  # the new verdicts now come from history
 
 
 def show_sent():
@@ -141,33 +166,34 @@ with upload_tab:  # last, because st.stop() below ends the whole run when no log
     with st.expander(f"Stays on this computer ({len(kept)})", expanded=True):
         st.table([{"Kind": r["kind"], "Value": r["value"], "Why": r["reason"]} for r in kept])
 
-    answers = {"IP address": history.latest_answers("ip"), "Domain name": history.latest_answers("domain")}
+    answers = {"IP address": history.latest_answers("ip"), "Domain name": history.latest_answers("domain"),
+               "File hash": history.latest_answers("hash")}
     checked = [answers[row["kind"]][row["value"]] for row in to_send if row["value"] in answers[row["kind"]]]
-    unchecked = [row for row in to_send if row["value"] not in answers[row["kind"]]]
+    unchecked = [row for row in to_send if row["value"] not in answers[row["kind"]] and not row.get("waits")]
+    waiting = [row for row in to_send if row["value"] not in answers[row["kind"]] and row.get("waits")]
 
     st.subheader("Verdicts")
     st.write(f"{len(checked)} of {len(to_send)} already checked: their verdicts come from history, so they are not sent again.")
     if checked:
         st.table([result_row(found) for found in checked])
 
-    can_ask = ready["ip"] and ready["domain"]
+    can_ask = all(ready.values())
     if not can_ask:
-        st.info("Start the IP and domain portals to look these up.")
+        st.info("Start the three portals to look these up.")
+    slow = sum(row["kind"] == "File hash" for row in unchecked)
+    if slow:
+        st.caption(f"{slow} hashes, about {slow * portals.GAP['VirusTotal'] // 60 + 1} minutes: VirusTotal allows 4 a minute. "
+                   "Unusual programs come first.")
     label = f"Look up the {len(unchecked)} never checked" if unchecked else "Nothing new to look up"
     if st.button(label, disabled=not can_ask or not unchecked):
-        st.session_state["failed"] = []
-        bar = st.progress(0.0, text="Asking the portals (a new domain name can take up to a minute)...")
-        table_spot = st.empty()  # a placeholder that is redrawn after every answer, so results appear as they arrive
-        found_now = []
-        for done, row in enumerate(unchecked, start=1):
-            found = portals.ask_ip(row["value"]) if row["kind"] == "IP address" else portals.ask_domain(row["value"])
-            history.save_answer(found)
-            found_now.append(found)
-            if found["status"] != "answered":
-                st.session_state["failed"].append(found)
-            bar.progress(done / len(unchecked), text=f"{done} of {len(unchecked)} looked up")
-            table_spot.table([result_row(f) for f in found_now])
-        st.rerun()  # draw the page again: the new verdicts now come from history
+        look_up(unchecked)
+    if waiting:
+        with st.expander(f"Waiting: programs that look like ordinary Windows files ({len(waiting)})"):
+            st.caption("Each passed all five checks: labelled Microsoft, inside the Windows folder, run under its own name, "
+                       "not created during the log, and no network use.")
+            st.table([{"Program": row["program"], "SHA-256": row["value"]} for row in waiting])
+        if st.button(f"Look up the {len(waiting)} ordinary ones too", disabled=not can_ask):
+            look_up(waiting)
     if st.session_state["failed"]:
         st.warning("Not looked up this time; they will be tried again next time:")
         st.table([result_row(found) for found in st.session_state["failed"]])

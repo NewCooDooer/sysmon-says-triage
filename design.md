@@ -70,7 +70,7 @@ belong to the portals' outside services (the providers' published figures, check
 - **Privacy gate, six rules:** only public IP addresses are sent; a name without a dot, with an internal ending, or that resolved to a company-network address stays local (not 127.0.0.1 or 0.0.0.0, where dormant malware domains are parked); only hashes of programs are sent; everything sent is written to a local record.
 - **Every rule works from the log itself, with no setup:** logs come from different organisations, and a fixed settings file would be wrong for every other one.
 - **When a log lacks something, a rule fails towards checking more,** never towards hiding something.
-- **A file waits only if it passes all five "ordinary file" checks:** Microsoft label, system folder, run name matching its built-in original name, existed before the log, never touched the network. A fake must beat all five; failing one sends it to the queue.
+- **A file waits only if it passes all five "ordinary file" checks:** Microsoft label, inside the Windows folder, run name matching its built-in original name, not created during the log, no network use. A fake must beat all five; failing one puts it in the first lookup, and the ordinary ones wait for a second button.
 - **A file is never dropped because its connections looked clean:** malware often talks to trusted services.
 - **No Claude or other AI inside the tool:** nothing private can reach it because it is not in the pipeline.
 - **The page answers this computer only, Streamlit's usage statistics are off, and the font is served from this computer:** otherwise the page itself would send data out.
