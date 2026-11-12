@@ -81,6 +81,7 @@ belong to the portals' outside services (the providers' published figures, check
 - **A verdict belongs to the indicator, not the computer, and only real answers are saved:** one check covers every computer, and a failed lookup is simply tried again.
 - **Retro-hunting runs when the analyst presses a button, not on a timer:** nothing leaves without a button press.
 - **The dashboard interprets changes; it does not predict:** a few uploads can't support a forecast.
+- **New means first seen in the latest log; gone quiet means last seen before it; flagged means a portal's own label says suspicious, malicious or likely or definitely malware,** with no score threshold of our own.
 - **Share-safe export reuses the gate's rules, keeps the pseudonym key local, and refuses to export if any original name remains.**
 - **Logs, history, the sent record and the pseudonym key never go into git.**
 

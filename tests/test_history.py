@@ -79,3 +79,10 @@ def test_answers_are_kept_apart_by_kind():
     history.save_answer(answer("93.184.215.14", "no_known_bad", portal="ip"))
     assert history.latest_answers("domain") == {}
     assert list(history.latest_answers("ip")) == ["93.184.215.14"]
+
+
+def test_the_dashboard_reads_one_computers_history():
+    history.add_upload(b"log one", [START, event(22, "2026-01-01 09:06", "PC-2", QueryName="example.org")])
+    assert history.computers() == ["PC-1", "PC-2"]
+    assert [u["first_event"] for u in history.uploads_of("PC-1")] == ["2026-01-01 09:00"]
+    assert [s["kind"] for s in history.sightings_of("PC-2")] == ["domain"]

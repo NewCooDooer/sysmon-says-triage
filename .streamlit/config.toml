@@ -5,3 +5,8 @@ address = "127.0.0.1"
 # Streamlit sends usage statistics to its company by default; nothing may leave this machine, so they are off.
 [browser]
 gatherUsageStats = false
+
+# The look: a dark theme with one accent colour (buttons, tabs, sliders).
+[theme]
+base = "dark"
+primaryColor = "#2DD4BF"
