@@ -29,3 +29,19 @@ def test_only_the_portals_own_bad_labels_are_flagged():
     assert dashboard.verdict(sighting("domain", "example.org", "", ""), answers) not in dashboard.FLAGGED
     assert dashboard.verdict(sighting("ip", "93.184.215.14", "", ""), answers) not in dashboard.FLAGGED
     assert dashboard.verdict(STAYED, answers) == ""  # never checked: no verdict, never flagged
+
+
+def change(kind, value, before, now):
+    return {"kind": kind, "value": value, "before": {"label": before}, "now": {"label": now}}
+
+
+def test_the_dashboard_keeps_only_this_computers_changes():
+    changed = [change("domain", "example.com", "Likely safe", "Likely malware"), change("ip", "198.51.100.7", "a", "b")]
+    assert dashboard.mine(changed, [ARRIVED, STAYED]) == [changed[0]]
+
+
+def test_newly_flagged_means_it_was_not_flagged_before():
+    worse = change("domain", "example.com", "Likely safe", "Likely malware")
+    better = change("domain", "example.org", "Likely malware", "Undetermined")
+    still = change("hash", "aa11", "suspicious", "malicious")  # flagged before and now: not new
+    assert dashboard.newly_flagged([worse, better, still]) == [worse]
