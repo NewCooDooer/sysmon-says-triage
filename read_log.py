@@ -88,6 +88,17 @@ def split_hashes(text):
     return hashes
 
 
+def name_answers(events):
+    """Each domain name looked up (lowercase, no final dot), with every answer Sysmon recorded for it joined by ";"."""
+    answers = {}
+    for event in events:
+        if event["id"] == 22:
+            name = event["fields"].get("QueryName", "").lower().rstrip(".")
+            if name:
+                answers[name] = answers.get(name, "") + event["fields"].get("QueryResults", "") + ";"
+    return answers
+
+
 def summarize(events):
     """What was learned from a log: counts per event type, computers, time span, programs, names and addresses."""
     by_type, computers, programs, hash_types = {}, set(), set(), set()
