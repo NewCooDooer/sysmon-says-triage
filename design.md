@@ -102,4 +102,4 @@ Each is done when its pull request is merged; the PR holds the evidence and the 
 - **M6 File hashes:** new program hashes are looked up through the hash portal, ordered by the five "ordinary file" checks.
 - **M7 Retro-hunting:** older indicators are re-checked on request, and every changed verdict is shown with its context.
 - **M8 Share-safe export:** scrubbed events and the dashboard report; the pseudonym key stays local and the self-check passes.
-- **M9 Demo and defence:** logs from a Windows machine, final documents and a rehearsed demo.
+- **M9 Demo and defence:** the demo runs on the two course logs (one computer on two days, plus a second computer), with final documents and a rehearsed demo.
