@@ -106,3 +106,14 @@ def ask_domain(name):
     if code == 400:
         return result("domain", name, "refused", message=body.get("error", "not accepted"))
     return result("domain", name, "error", message=body if code is None else f"unexpected answer (HTTP {code})")
+
+
+def ask_hash(sha256):
+    """Ask the hash portal about one program's SHA-256 (GET /api/v1/hash/<hash>)."""
+    code, body = send("hash", "/api/v1/hash/" + sha256, sha256)
+    if code == 200:
+        verdict = body.get("verdict", {})
+        return result("hash", sha256, "answered", verdict.get("score"), verdict.get("label"), verdict.get("reasons", []))
+    if code == 400:
+        return result("hash", sha256, "refused", message=body.get("error", "not accepted"))
+    return result("hash", sha256, "error", message=body if code is None else f"unexpected answer (HTTP {code})")

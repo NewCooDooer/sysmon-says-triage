@@ -8,7 +8,7 @@ import history
 
 # The portals' own words for "worth a look". No score threshold of our own: each portal decides.
 FLAGGED = {"suspicious", "malicious", "Likely malware", "Definitely malware"}
-KINDS = {"program": "Programs", "domain": "Domains", "ip": "IP addresses"}
+KINDS = {"program": "Programs", "hash": "Program hashes", "domain": "Domains", "ip": "IP addresses"}
 
 
 def compare(uploads, sightings):
@@ -41,7 +41,7 @@ def show():
     computer = st.selectbox("Computer", names)
     uploads, sightings = history.uploads_of(computer), history.sightings_of(computer)
     new, gone, per_upload = compare(uploads, sightings)
-    answers = {"ip": history.latest_answers("ip"), "domain": history.latest_answers("domain")}
+    answers = {kind: history.latest_answers(kind) for kind in ("ip", "domain", "hash")}
     first = len(uploads) == 1
 
     cards = st.columns(len(KINDS) + 1)
