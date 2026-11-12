@@ -118,3 +118,11 @@ def test_history_knows_which_program_each_hash_belongs_to_even_for_a_log_added_b
     history.add_upload(b"log one", [START])  # the same file again: nothing new is counted, but the table is filled in
     assert history.programs_of("PC-1") == {"aa11": "C:\\Tools\\a.exe"}
     assert history.connect().execute("SELECT uploads FROM sightings WHERE kind = 'hash'").fetchone() == (1,)
+
+
+def test_prevalence_counts_each_item_once_with_how_many_computers_have_it():
+    history.add_upload(b"log one", [LOOKUP, START, event(22, "2026-01-01 09:07", "PC-2", QueryName="example.com")])
+    found = {(i["kind"], i["value"]): i for i in history.prevalence()}
+    assert found[("domain", "example.com")]["computers"] == 2 and found[("domain", "example.com")]["names"] == "PC-1, PC-2"
+    assert found[("domain", "example.com")]["first_seen"] == "2026-01-01 09:05"  # the earliest on any computer
+    assert found[("program", "C:\\Tools\\a.exe")]["computers"] == 1

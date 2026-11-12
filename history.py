@@ -164,6 +164,13 @@ def programs_of(computer):
     return found
 
 
+def prevalence():
+    """Every item in history once: how many computers have seen it, which ones, and when it was first and last seen."""
+    return read("""SELECT kind, value, COUNT(*) AS computers, GROUP_CONCAT(computer, ', ') AS names,
+                          MIN(first_seen) AS first_seen, MAX(last_seen) AS last_seen
+                   FROM (SELECT * FROM sightings ORDER BY computer) GROUP BY kind, value""")
+
+
 def changes():
     """Every value whose two newest answers have different labels, with both answers: "before" and "now"."""
     answers = {}  # (kind, value) -> its answers, oldest first

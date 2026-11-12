@@ -66,16 +66,83 @@ def offer(content, whole, inside, file_name):
                    + "; ".join(f'"{name}" in "...{example}..."' for name, example in inside.items()))
 
 
+def computer_rows(answers, changed):
+    """One row per computer, most flagged first: which computer to open first."""
+    rows = []
+    for name in history.computers():
+        uploads, sightings = history.uploads_of(name), history.sightings_of(name)
+        rows.append({"Computer": name, "Uploads": len(uploads), "Latest log": uploads[-1]["first_event"][:16],
+                     "Flagged": sum(verdict(s, answers) in FLAGGED for s in sightings),
+                     "Verdicts changed": len(mine(changed, sightings)),
+                     "New in latest log": len(compare(uploads, sightings)[0]) if len(uploads) > 1 else None})
+    return sorted(rows, key=lambda row: -row["Flagged"])
+
+
+def fleet(items, answers):
+    """Flagged items on more than one computer, most widespread first; and programs, domains and IPs that only one
+    computer has, flagged first, then newest. Rare is worth a look: attacks hide on few machines, normal is on most."""
+    spread = sorted((i for i in items if i["computers"] > 1 and verdict(i, answers) in FLAGGED),
+                    key=lambda i: -i["computers"])
+    rare = sorted((i for i in items if i["computers"] == 1 and i["kind"] in ("program", "domain", "ip")),
+                  key=lambda i: i["first_seen"], reverse=True)  # newest first...
+    rare.sort(key=lambda i: verdict(i, answers) not in FLAGGED)  # ...then flagged first, newest first within each
+    return spread, rare
+
+
+def overview_table(items, answers, programs):
+    """Items from every computer as rows, with how many computers have each and which ones."""
+    return [{"Kind": i["kind"], "Value": i["value"], "Program": programs.get(i["value"], ""),
+             "Portal's verdict": verdict(i, answers), "Computers": i["computers"], "Seen on": i["names"],
+             "First seen": i["first_seen"][:16], "Last seen": i["last_seen"][:16]} for i in items]
+
+
+def show_overview(names, answers):
+    """All computers at once: which to open first, what is flagged on several, and what only one has."""
+    changed, items, programs = history.changes(), history.prevalence(), {}
+    for name in names:
+        programs |= history.programs_of(name)  # |= adds one dictionary into another
+    rows = computer_rows(answers, changed)
+    spread, rare = fleet(items, answers)
+
+    cards = st.columns(4)
+    cards[0].metric("Computers", len(names), border=True)
+    cards[1].metric("Uploads", sum(row["Uploads"] for row in rows), border=True)
+    cards[2].metric("Flagged items", sum(verdict(i, answers) in FLAGGED for i in items), border=True)
+    cards[3].metric("Verdicts changed", len(changed), border=True)
+    st.space("medium")
+    with st.container(border=True):
+        st.subheader("Computers, most flagged first")
+        st.dataframe(rows, hide_index=True)
+    st.space("medium")
+    with st.container(border=True):
+        st.subheader("Flagged on several computers")
+        st.caption("A spread, not a one-off: one verdict, several machines.")
+        if spread:
+            st.dataframe(overview_table(spread, answers, programs), hide_index=True)
+        else:
+            st.write("Nothing flagged is on more than one computer.")
+    st.space("medium")
+    with st.container(border=True):
+        st.subheader("Only on one computer")
+        st.caption("Normal software is on most machines; something only one computer has is worth a look. "
+                   "Flagged first, then newest.")
+        with st.expander(f"Programs, domains and IP addresses only one computer has ({len(rare)})"):
+            st.dataframe(overview_table(rare, answers, programs), hide_index=True)
+
+
 def show():
     """Draw the Dashboard tab."""
     names = history.computers()
     if not names:
         st.info('No history yet: add a Sysmon log in the "Add a log" tab.')
         return
-    computer = st.selectbox("Computer", names)
+    answers = {kind: history.latest_answers(kind) for kind in ("ip", "domain", "hash")}
+    computer = st.selectbox("Computer", (["All computers"] if len(names) > 1 else []) + names)
+    if computer == "All computers":
+        show_overview(names, answers)
+        return
     uploads, sightings = history.uploads_of(computer), history.sightings_of(computer)
     new, gone, per_upload = compare(uploads, sightings)
-    answers = {kind: history.latest_answers(kind) for kind in ("ip", "domain", "hash")}
     programs = history.programs_of(computer)
     first = len(uploads) == 1
 
