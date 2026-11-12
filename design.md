@@ -81,6 +81,7 @@ belong to the portals' outside services (the providers' published figures, check
 - **Only indicators never checked before are looked up:** repeat uploads cost almost nothing, which also tames VirusTotal's limit.
 - **A verdict belongs to the indicator, not the computer, and only real answers are saved:** one check covers every computer, and a failed lookup is simply tried again.
 - **Retro-hunting runs when the analyst presses a button, not on a timer:** nothing leaves without a button press.
+- **A verdict has changed when the label of its two newest answers differs; a new score with the same label is not a change:** small score drifts would bury real changes. The portals' own caches can delay a change by hours or days, never invent one.
 - **The dashboard interprets changes; it does not predict:** a few uploads can't support a forecast.
 - **New means first seen in the latest log; gone quiet means last seen before it; flagged means a portal's own label says suspicious, malicious or likely or definitely malware,** with no score threshold of our own.
 - **Share-safe export reuses the gate's rules, keeps the pseudonym key local, and refuses to export if any original name remains.**

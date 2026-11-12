@@ -32,6 +32,26 @@ def table(items, answers):
             for s in items]
 
 
+def mine(changed, sightings):
+    """Only the changed verdicts of values this computer has seen."""
+    seen = {(s["kind"], s["value"]) for s in sightings}
+    return [c for c in changed if (c["kind"], c["value"]) in seen]
+
+
+def newly_flagged(changed):
+    """The changes that turned a verdict into a flagged one: once judged clean, now worth a look."""
+    return [c for c in changed if c["now"]["label"] in FLAGGED and c["before"]["label"] not in FLAGGED]
+
+
+def change_table(changed):
+    """Changed verdicts as rows: before, now, and the context: which computers saw the value, and when last."""
+    def said(answer):
+        return f"{answer['label']} (score {answer['score']}, {answer['checked_at'][:10]})"
+    return [{"Kind": c["kind"], "Value": c["value"], "Before": said(c["before"]), "Now": said(c["now"]),
+             "Seen on": ", ".join(f"{s['computer']} (last {s['last_seen'][:16]})" for s in history.seen_on(c["kind"], c["value"]))}
+            for c in changed]
+
+
 def show():
     """Draw the Dashboard tab."""
     names = history.computers()
@@ -62,6 +82,17 @@ def show():
         else:
             st.badge("Nothing flagged", color="green")
             st.caption("Only items a portal has checked can be flagged; checking happens in the \"Add a log\" tab.")
+
+    changed = mine(history.changes(), sightings)
+    st.space("medium")
+    with st.container(border=True):  # a framed box per section
+        st.subheader("Verdicts that changed")
+        if newly_flagged(changed):
+            st.badge(f"{len(newly_flagged(changed))} now flagged", color="red")
+        if changed:
+            st.dataframe(change_table(changed), hide_index=True)
+        else:
+            st.write('No verdict has changed. Older verdicts are checked again in the "Re-check" tab.')
 
     st.space("medium")
     with st.container(border=True):  # a framed box per section

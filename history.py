@@ -106,7 +106,7 @@ def save_answer(found):
 
 
 def latest_answers(kind):
-    """The newest answer for each value of one kind ("ip" or "domain"), as {value: answer} in portals.result's shape."""
+    """The newest answer for each value of one kind ("ip", "domain" or "hash"), as {value: answer} in portals.result's shape."""
     db = connect()
     rows = db.execute("SELECT value, checked_at, label, score, reasons FROM answers WHERE kind = ? "
                       "ORDER BY checked_at, rowid", (kind,)).fetchall()
@@ -139,3 +139,17 @@ def uploads_of(computer):
 def sightings_of(computer):
     """Everything ever seen on one computer."""
     return read("SELECT * FROM sightings WHERE computer = ? ORDER BY kind, value", (computer,))
+
+
+def changes():
+    """Every value whose two newest answers have different labels, with both answers: "before" and "now"."""
+    answers = {}  # (kind, value) -> its answers, oldest first
+    for row in read("SELECT kind, value, checked_at, label, score FROM answers ORDER BY checked_at, rowid"):
+        answers.setdefault((row["kind"], row["value"]), []).append(row)
+    return [{"kind": kind, "value": value, "before": found[-2], "now": found[-1]}
+            for (kind, value), found in answers.items() if len(found) > 1 and found[-2]["label"] != found[-1]["label"]]
+
+
+def seen_on(kind, value):
+    """Which computers saw one value, and when last."""
+    return read("SELECT computer, last_seen FROM sightings WHERE kind = ? AND value = ? ORDER BY computer", (kind, value))

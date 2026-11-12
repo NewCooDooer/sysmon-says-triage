@@ -86,3 +86,25 @@ def test_the_dashboard_reads_one_computers_history():
     assert history.computers() == ["PC-1", "PC-2"]
     assert [u["first_event"] for u in history.uploads_of("PC-1")] == ["2026-01-01 09:00"]
     assert [s["kind"] for s in history.sightings_of("PC-2")] == ["domain"]
+
+
+def test_a_change_is_a_different_label_between_the_two_newest_answers(monkeypatch):
+    times = iter(f"2026-01-0{day}T09:00:00+00:00" for day in range(1, 9))
+    monkeypatch.setattr(history, "now", lambda: next(times))
+    history.save_answer(answer("example.com", "Likely safe"))
+    history.save_answer(answer("example.com", "Likely malware"))  # changed: Likely safe -> Likely malware
+    history.save_answer(answer("example.org", "Undetermined"))
+    history.save_answer(dict(answer("example.org", "Undetermined"), score=55))  # a new score, the same label: no change
+    history.save_answer(answer("example.net", "Likely malware"))
+    history.save_answer(answer("example.net", "Likely safe"))
+    history.save_answer(answer("example.net", "Likely safe"))  # changed long ago, but its newest two agree: no change
+    found = history.changes()
+    assert [(c["value"], c["before"]["label"], c["now"]["label"]) for c in found] == [
+        ("example.com", "Likely safe", "Likely malware")]
+    assert found[0]["now"]["checked_at"] == "2026-01-02T09:00:00+00:00"
+
+
+def test_seen_on_names_each_computer_and_when_last():
+    history.add_upload(b"log one", [LOOKUP, event(22, "2026-01-01 09:07", "PC-2", QueryName="example.com")])
+    assert history.seen_on("domain", "example.com") == [{"computer": "PC-1", "last_seen": "2026-01-01 09:05"},
+                                                        {"computer": "PC-2", "last_seen": "2026-01-01 09:07"}]

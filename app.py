@@ -74,9 +74,10 @@ def result_row(found):
 ASK = {"IP address": portals.ask_ip, "Domain name": portals.ask_domain, "File hash": portals.ask_hash}
 
 
-def look_up(rows):
-    """Ask the right portal about each row, save each answer in history, keep the failures, then draw the page again."""
-    st.session_state["failed"] = []
+def look_up(rows, failed="failed"):
+    """Ask the right portal about each row, save each answer in history, keep the failures (under the name `failed`, so
+    each tab keeps its own), then draw the page again."""
+    st.session_state[failed] = []
     bar = st.progress(0.0, text="Asking the portals (a new domain can take a minute; each hash waits for VirusTotal)...")
     table_spot = st.empty()  # a placeholder that is redrawn after every answer, so results appear as they arrive
     found_now = []
@@ -85,10 +86,47 @@ def look_up(rows):
         history.save_answer(found)
         found_now.append(found)
         if found["status"] != "answered":
-            st.session_state["failed"].append(found)
+            st.session_state[failed].append(found)
         bar.progress(done / len(rows), text=f"{done} of {len(rows)} looked up")
         table_spot.table([result_row(f) for f in found_now])
     st.rerun()  # the new verdicts now come from history
+
+
+def show_recheck():
+    """The Re-check tab: ask the portals again about values already checked once, because their verdicts change."""
+    names = {"ip": "IP address", "domain": "Domain name", "hash": "File hash"}  # history's kinds, as the page names them
+    known = {kind: history.latest_answers(kind) for kind in names}
+    if not any(known.values()):
+        st.write('Nothing has been checked yet: the first verdicts come from the "Add a log" tab.')
+        return
+    oldest = min(found["checked_at"] for answers in known.values() for found in answers.values())
+    st.write(f"History has verdicts for {len(known['ip'])} IP addresses, {len(known['domain'])} domain names and "
+             f"{len(known['hash'])} file hashes. The oldest was checked {oldest[:16].replace('T', ' ')} (UTC).")
+    kinds = st.multiselect("What to re-check", list(names), default=["ip", "domain"], format_func=names.get)
+    rows = sorted(({"kind": names[kind], "value": value, "checked_at": found["checked_at"]}
+                   for kind in kinds for value, found in known[kind].items()), key=lambda row: row["checked_at"])
+    st.caption("Only values sent once before are sent again, oldest checks first. The IP and DNS portals keep their own "
+               "short-term caches, so a re-check soon after the last one may get the same answer back.")
+    slow = sum(row["kind"] == "File hash" for row in rows)
+    if slow:
+        st.caption(f"{slow} hashes, about {slow * portals.GAP['VirusTotal'] // 60 + 1} minutes: VirusTotal allows 4 a minute.")
+    can_ask = all(portals.is_ready(portal) for portal in portals.URLS)
+    if not can_ask:
+        st.info("Start the three portals to re-check.")
+    if st.button(f"Re-check {len(rows)}", disabled=not can_ask or not rows):
+        look_up(rows, failed="recheck_failed")
+    if st.session_state.get("recheck_failed"):
+        st.warning("Not re-checked this time; their older verdicts stay:")
+        st.table([result_row(found) for found in st.session_state["recheck_failed"]])
+
+    st.subheader("Verdicts that changed")
+    changed = history.changes()
+    if dashboard.newly_flagged(changed):
+        st.badge(f"{len(dashboard.newly_flagged(changed))} now flagged", color="red")
+    if changed:
+        st.dataframe(dashboard.change_table(changed), hide_index=True)
+    else:
+        st.write("No verdict has changed yet: each value's newest two answers have the same label.")
 
 
 def show_sent():
@@ -105,9 +143,11 @@ def show_sent():
 st.set_page_config(page_title="Sysmon Says Triage", layout="wide")
 st.html(BACKGROUND)
 st.title("Sysmon Says Triage")
-dashboard_tab, upload_tab, sent_tab = st.tabs(["Dashboard", "Add a log", "What was sent"])
+dashboard_tab, upload_tab, recheck_tab, sent_tab = st.tabs(["Dashboard", "Add a log", "Re-check", "What was sent"])
 with dashboard_tab:
     dashboard.show()
+with recheck_tab:
+    show_recheck()
 with sent_tab:
     show_sent()
 with upload_tab:  # last, because st.stop() below ends the whole run when no log is chosen
