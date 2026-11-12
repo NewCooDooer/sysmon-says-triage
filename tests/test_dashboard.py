@@ -45,3 +45,8 @@ def test_newly_flagged_means_it_was_not_flagged_before():
     better = change("domain", "example.org", "Likely malware", "Undetermined")
     still = change("hash", "aa11", "suspicious", "malicious")  # flagged before and now: not new
     assert dashboard.newly_flagged([worse, better, still]) == [worse]
+
+
+def test_a_hash_row_names_its_program_and_other_rows_do_not():
+    rows = dashboard.table([sighting("hash", "aa11", "", ""), ARRIVED], {}, {"aa11": "C:\\Tools\\a.exe"})
+    assert [row["Program"] for row in rows] == ["C:\\Tools\\a.exe", ""]

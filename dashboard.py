@@ -26,9 +26,10 @@ def verdict(sighting, answers):
     return answers.get(sighting["kind"], {}).get(sighting["value"], {}).get("label", "")
 
 
-def table(items, answers):
-    """Items as rows for a table."""
-    return [{"Kind": s["kind"], "Value": s["value"], "Portal's verdict": verdict(s, answers),
+def table(items, answers, programs):
+    """Items as rows for a table. A hash also names the program it belongs to, so the analyst knows what to look at."""
+    return [{"Kind": s["kind"], "Value": s["value"], "Program": programs.get(s["value"], ""),  # only a hash is a key
+             "Portal's verdict": verdict(s, answers),
              "First seen": s["first_seen"][:16], "Last seen": s["last_seen"][:16], "Uploads": s["uploads"]}
             for s in items]
 
@@ -75,6 +76,7 @@ def show():
     uploads, sightings = history.uploads_of(computer), history.sightings_of(computer)
     new, gone, per_upload = compare(uploads, sightings)
     answers = {kind: history.latest_answers(kind) for kind in ("ip", "domain", "hash")}
+    programs = history.programs_of(computer)
     first = len(uploads) == 1
 
     cards = st.columns(len(KINDS) + 1)
@@ -91,7 +93,7 @@ def show():
         st.subheader("Flagged by the portals")
         if flagged:
             st.badge(f"{len(flagged)} flagged", color="red")
-            st.dataframe(table(flagged, answers), hide_index=True)
+            st.dataframe(table(flagged, answers, programs), hide_index=True)
         else:
             st.badge("Nothing flagged", color="green")
             st.caption("Only items a portal has checked can be flagged; checking happens in the \"Add a log\" tab.")
@@ -113,21 +115,21 @@ def show():
         if first:
             st.write("This is the first upload for this computer, so everything is new.")
         else:
-            st.dataframe(table(new, answers), hide_index=True)
+            st.dataframe(table(new, answers, programs), hide_index=True)
 
     st.space("medium")
     with st.container(border=True):  # a framed box per section
         st.subheader("Gone quiet")
         st.caption("Seen in earlier uploads, but not in the latest one.")
         if gone:
-            st.dataframe(table(gone, answers), hide_index=True)
+            st.dataframe(table(gone, answers, programs), hide_index=True)
         else:
             st.write("Nothing has gone quiet.")
 
     st.space("medium")
     with st.container(border=True):  # a framed box per section
         st.subheader("Trends across uploads")
-        dates = [u["first_event"][:16] for u in uploads]
+        dates = [u["first_event"][5:16] for u in uploads]  # [5:16]: "12-13 10:26", short enough to fit under a bar
         counts = [json.loads(u["counts"]) for u in uploads]
         by_type = {"Upload": dates}  # one column per event type, one row per upload
         for event_type in sorted({t for c in counts for t in c}):
@@ -147,8 +149,9 @@ def show():
         for name in names:  # every computer in history, because "Seen on" can name another one
             export.add(found, name, "COMPUTER")
         summary = {"Uploads": len(uploads)} | {label: sum(s["kind"] == kind for s in sightings) for kind, label in KINDS.items()}
-        sections = [("Summary", [summary]), ("Flagged by the portals", table(flagged, answers)),
-                    ("Verdicts that changed", change_table(changed)), ("New in the latest upload", table(new, answers)),
-                    ("Gone quiet", table(gone, answers))]
+        sections = [("Summary", [summary]), ("Flagged by the portals", table(flagged, answers, programs)),
+                    ("Verdicts that changed", change_table(changed)),
+                    ("New in the latest upload", table(new, answers, programs)),
+                    ("Gone quiet", table(gone, answers, programs))]
         title = f"{computer}: latest log {uploads[-1]['first_event'][:16]} to {uploads[-1]['last_event'][:16]} (UTC)"
         offer(*export.share_safe_report(title, sections, found), "share-safe-report.html")
