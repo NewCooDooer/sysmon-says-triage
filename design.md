@@ -34,6 +34,7 @@ One local file, never in git:
 - each upload: computer, date, time span, a file fingerprint, counts per event type;
 - each indicator per computer: first seen, last seen, number of uploads;
 - each portal answer, with the date it was checked (older answers kept).
+- which program each file hash ran as, per computer.
 
 ## The portals we call (their contracts, unchanged)
 

@@ -19,11 +19,12 @@ CREATE TABLE IF NOT EXISTS uploads (computer TEXT, fingerprint TEXT, added_at TE
 CREATE TABLE IF NOT EXISTS sightings (computer TEXT, kind TEXT, value TEXT, first_seen TEXT, last_seen TEXT,
                                       uploads INTEGER, PRIMARY KEY (computer, kind, value));
 CREATE TABLE IF NOT EXISTS answers (kind TEXT, value TEXT, checked_at TEXT, label TEXT, score NUMERIC, reasons TEXT);
+CREATE TABLE IF NOT EXISTS programs (computer TEXT, hash TEXT, program TEXT, PRIMARY KEY (computer, hash, program));
 """
 
 
 def connect():
-    """Open the history file, creating the three tables the first time."""
+    """Open the history file, creating the four tables the first time."""
     db = sqlite3.connect(HISTORY_DB)
     db.executescript(TABLES)
     return db
@@ -64,6 +65,16 @@ def indicators(events):
     return found
 
 
+def program_hashes(events):
+    """Which program each SHA-256 belongs to, per computer: a set of (computer, hash, program path)."""
+    found = set()
+    for event in events:
+        sha256 = read_log.split_hashes(event["fields"].get("Hashes", "")).get("SHA256", "")
+        if event["id"] == 1 and sha256:
+            found.add((event["computer"], sha256, event["fields"].get("Image", "")))
+    return found
+
+
 def add_upload(file_bytes, events):
     """Add a log to each of its computers' history. Gives back, per computer: how many uploads it now has, whether this
     file was already there, whether it is the computer's first upload, and the indicators that are new for it."""
@@ -89,6 +100,9 @@ def add_upload(file_bytes, events):
             count = db.execute("SELECT COUNT(*) FROM uploads WHERE computer = ?", (computer,)).fetchone()[0]
             results[computer] = {"uploads": count, "already": bool(already), "first": not known,
                                  "new": [] if already else sorted(set(seen) - known)}
+        # Even for a file already in history, so choosing an older log again fills this table in.
+        # OR IGNORE: a row that is already there is skipped.
+        db.executemany("INSERT OR IGNORE INTO programs VALUES (?, ?, ?)", program_hashes(events))
     db.close()
     return results
 
@@ -139,6 +153,15 @@ def uploads_of(computer):
 def sightings_of(computer):
     """Everything ever seen on one computer."""
     return read("SELECT * FROM sightings WHERE computer = ? ORDER BY kind, value", (computer,))
+
+
+def programs_of(computer):
+    """{SHA-256: the program path or paths it ran as} for one computer."""
+    found = {}
+    for row in read("SELECT hash, program FROM programs WHERE computer = ? ORDER BY program", (computer,)):
+        # One hash can run under several paths: join them. filter(None, ...) drops the empty "nothing yet".
+        found[row["hash"]] = ", ".join(filter(None, [found.get(row["hash"]), row["program"]]))
+    return found
 
 
 def changes():

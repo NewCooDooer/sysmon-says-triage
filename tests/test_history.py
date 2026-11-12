@@ -108,3 +108,13 @@ def test_seen_on_names_each_computer_and_when_last():
     history.add_upload(b"log one", [LOOKUP, event(22, "2026-01-01 09:07", "PC-2", QueryName="example.com")])
     assert history.seen_on("domain", "example.com") == [{"computer": "PC-1", "last_seen": "2026-01-01 09:05"},
                                                         {"computer": "PC-2", "last_seen": "2026-01-01 09:07"}]
+
+
+def test_history_knows_which_program_each_hash_belongs_to_even_for_a_log_added_before():
+    db = history.connect()
+    history.add_upload(b"log one", [START])
+    db.execute("DELETE FROM programs")  # as if this log had been added before the programs table existed
+    db.commit()
+    history.add_upload(b"log one", [START])  # the same file again: nothing new is counted, but the table is filled in
+    assert history.programs_of("PC-1") == {"aa11": "C:\\Tools\\a.exe"}
+    assert history.connect().execute("SELECT uploads FROM sightings WHERE kind = 'hash'").fetchone() == (1,)
