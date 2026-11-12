@@ -14,8 +14,10 @@ import read_log
 
 KEY_FILE = Path(__file__).parent / "pseudonym_key.json"  # local only: listed in .gitignore
 
-# Windows' own accounts and folders: they identify nobody, and keeping them helps the reader.
-BUILT_IN = {"nt authority", "window manager", "font driver host", "public", "default", "default user", "all users", "-", ""}
+# Windows' own accounts and folders, and generic account names: they identify nobody, and keeping them helps the reader.
+# A generic name would also set off the self-check's "inside a longer word" note everywhere ("user" inside "Users").
+BUILT_IN = {"nt authority", "window manager", "font driver host", "public", "default", "default user", "all users", "-", "",
+            "user", "admin", "administrator", "guest", "test", "owner"}
 USER_FIELDS = ("User", "ParentUser", "SourceUser", "TargetUser")  # each holds "COMPUTER\user"
 FREE_TEXT = ("CommandLine", "ParentCommandLine", "Contents")  # can hold anything, so left out unless the analyst asks
 
@@ -89,7 +91,9 @@ def key_for(found):
             number = sum(standin.rsplit("-", 1)[0] == kind for standin in key.values()) + 1
             key[original] = f"{kind}-{number}"
     KEY_FILE.write_text(json.dumps(key, indent=1, sort_keys=True))
-    return key
+    # A name saved before it joined BUILT_IN keeps its line in the file, so its number is never given to someone else,
+    # but it is no longer replaced or checked.
+    return {original: standin for original, standin in key.items() if original not in BUILT_IN}
 
 
 def scrub(text, key):

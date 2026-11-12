@@ -69,10 +69,20 @@ def test_the_report_is_scrubbed_escaped_and_checked():
     assert "&lt;b&gt;" in page  # escaped: text from a log can never act as code in a browser
 
 
-def test_field_names_are_never_scrubbed_even_for_a_user_called_user():
+def test_field_names_are_never_scrubbed_even_when_a_name_matches_one():
+    named = event(1, computer="PC-7", Image="C:\\Users\\image\\a.exe", User="PC-7\\image")  # a user called "image"
+    fields = json.loads(export.share_safe_log([named])[0])[0]["fields"]
+    assert set(fields) == {"Image", "User"}  # the field names are untouched; only the values change
+    assert fields["User"] == "COMPUTER-1\\USER-1" and fields["Image"] == "C:\\Users\\USER-1\\a.exe"
+
+
+def test_a_generic_account_name_is_kept_and_sets_off_no_note():
     folder = event(11, computer="PC-7", TargetFilename="C:\\Users\\user\\notes.txt", User="PC-7\\user")
     text, whole, inside = export.share_safe_log([folder])
-    fields = json.loads(text)[0]["fields"]
-    assert set(fields) == {"TargetFilename", "User"}  # the field names are untouched
-    assert fields["User"] == "COMPUTER-1\\USER-1" and whole == []
-    assert "Users" in inside["user"]  # "user" inside "Users" is listed for a check by hand, not blocked
+    assert "C:\\\\Users\\\\user\\\\notes.txt" in text  # "user" identifies nobody, so it stays (JSON doubles each \\)
+    assert whole == [] and inside == {}  # and "user" inside "Users" is no longer a note to check by hand
+
+
+def test_a_name_that_became_generic_keeps_its_number_so_it_is_never_reused():
+    export.KEY_FILE.write_text(json.dumps({"user": "USER-1"}))  # saved before generic names were Windows' own
+    assert export.key_for({"alice": "USER"}) == {"alice": "USER-2"}  # USER-1 is not given to Alice
