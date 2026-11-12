@@ -45,43 +45,51 @@ def show():
     first = len(uploads) == 1
 
     cards = st.columns(len(KINDS) + 1)
-    cards[0].metric("Uploads", len(uploads))
+    cards[0].metric("Uploads", len(uploads), border=True)
     for card, (kind, label) in zip(cards[1:], KINDS.items()):
         added = sum(s["kind"] == kind for s in new)
         card.metric(label, sum(s["kind"] == kind for s in sightings), delta=None if first else f"{added} new",
-                    delta_color="off")  # grey: new is neither good nor bad
+                    delta_color="off", delta_arrow="off", border=True)  # grey and no arrow: new is neither good nor bad
     st.caption(f"Latest log: {uploads[-1]['first_event'][:16]} to {uploads[-1]['last_event'][:16]} (UTC).")
 
     flagged = [s for s in sightings if verdict(s, answers) in FLAGGED]
-    st.subheader("Flagged by the portals")
-    if flagged:
-        st.badge(f"{len(flagged)} flagged", color="red")
-        st.dataframe(table(flagged, answers), hide_index=True)
-    else:
-        st.badge("Nothing flagged", color="green")
-        st.caption("Only items a portal has checked can be flagged; checking happens in the \"Add a log\" tab.")
+    st.space("medium")
+    with st.container(border=True):  # a framed box per section
+        st.subheader("Flagged by the portals")
+        if flagged:
+            st.badge(f"{len(flagged)} flagged", color="red")
+            st.dataframe(table(flagged, answers), hide_index=True)
+        else:
+            st.badge("Nothing flagged", color="green")
+            st.caption("Only items a portal has checked can be flagged; checking happens in the \"Add a log\" tab.")
 
-    st.subheader("New in the latest upload")
-    if first:
-        st.write("This is the first upload for this computer, so everything is new.")
-    else:
-        st.dataframe(table(new, answers), hide_index=True)
+    st.space("medium")
+    with st.container(border=True):  # a framed box per section
+        st.subheader("New in the latest upload")
+        if first:
+            st.write("This is the first upload for this computer, so everything is new.")
+        else:
+            st.dataframe(table(new, answers), hide_index=True)
 
-    st.subheader("Gone quiet")
-    st.caption("Seen in earlier uploads, but not in the latest one.")
-    if gone:
-        st.dataframe(table(gone, answers), hide_index=True)
-    else:
-        st.write("Nothing has gone quiet.")
+    st.space("medium")
+    with st.container(border=True):  # a framed box per section
+        st.subheader("Gone quiet")
+        st.caption("Seen in earlier uploads, but not in the latest one.")
+        if gone:
+            st.dataframe(table(gone, answers), hide_index=True)
+        else:
+            st.write("Nothing has gone quiet.")
 
-    st.subheader("Trends across uploads")
-    dates = [u["first_event"][:16] for u in uploads]
-    counts = [json.loads(u["counts"]) for u in uploads]
-    by_type = {"Upload": dates}  # one column per event type, one row per upload
-    for event_type in sorted({t for c in counts for t in c}):
-        by_type[event_type] = [c.get(event_type, 0) for c in counts]
-    left, right = st.columns(2)
-    left.caption("Events per type, per upload")
-    left.bar_chart(by_type, x="Upload")
-    right.caption("New items per upload: a jump means something changed")
-    right.bar_chart({"Upload": dates, "New items": per_upload}, x="Upload")
+    st.space("medium")
+    with st.container(border=True):  # a framed box per section
+        st.subheader("Trends across uploads")
+        dates = [u["first_event"][:16] for u in uploads]
+        counts = [json.loads(u["counts"]) for u in uploads]
+        by_type = {"Upload": dates}  # one column per event type, one row per upload
+        for event_type in sorted({t for c in counts for t in c}):
+            by_type[event_type] = [c.get(event_type, 0) for c in counts]
+        left, right = st.columns(2)
+        left.caption("Events per type, per upload")
+        left.bar_chart(by_type, x="Upload")
+        right.caption("New items per upload: a jump means something changed")
+        right.bar_chart({"Upload": dates, "New items": per_upload}, x="Upload")

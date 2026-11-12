@@ -1,12 +1,37 @@
 # Only this computer may open the page (Streamlit's default is every network connection of the computer).
 [server]
 address = "127.0.0.1"
+# Serve the files in static/ (the Quantico font) from this computer, so the page never fetches fonts from the internet.
+enableStaticServing = true
 
 # Streamlit sends usage statistics to its company by default; nothing may leave this machine, so they are off.
 [browser]
 gatherUsageStats = false
 
-# The look: a dark theme with one accent colour (buttons, tabs, sliders).
+# The look: black, white and gold. Red and green keep Streamlit's defaults, so bad and good stay obvious.
 [theme]
 base = "dark"
-primaryColor = "#2DD4BF"
+font = "Quantico, sans-serif"
+headingFont = "Quantico, sans-serif"
+primaryColor = "#D4AF37"
+backgroundColor = "#000000"
+secondaryBackgroundColor = "#141414"
+textColor = "#FFFFFF"
+linkColor = "#D4AF37"
+blueColor = "#D4AF37"
+borderColor = "#4A3F1C"
+dataframeHeaderBackgroundColor = "#1A1A1A"
+dataframeHeaderTextColor = "#D4AF37"
+chartCategoricalColors = ["#D4AF37", "#FFFFFF", "#8C7325", "#B8B8B8", "#F0D78C", "#6E6E6E", "#A68A2E", "#E6E6E6", "#4D4D4D",
+                          "#5C4A12"]
+
+# The Quantico font (SIL Open Font License, licence text in static/), loaded from this computer.
+[[theme.fontFaces]]
+family = "Quantico"
+url = "app/static/Quantico-Regular.ttf"
+weight = 400
+
+[[theme.fontFaces]]
+family = "Quantico"
+url = "app/static/Quantico-Bold.ttf"
+weight = 700

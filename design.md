@@ -73,7 +73,7 @@ belong to the portals' outside services (the providers' published figures, check
 - **A file waits only if it passes all five "ordinary file" checks:** Microsoft label, system folder, run name matching its built-in original name, existed before the log, never touched the network. A fake must beat all five; failing one sends it to the queue.
 - **A file is never dropped because its connections looked clean:** malware often talks to trusted services.
 - **No Claude or other AI inside the tool:** nothing private can reach it because it is not in the pipeline.
-- **The page answers this computer only, and Streamlit's usage statistics are off:** otherwise the page itself would send data out.
+- **The page answers this computer only, Streamlit's usage statistics are off, and the font is served from this computer:** otherwise the page itself would send data out.
 - **History is kept per computer, as Sysmon names it:** no setup, and organisations never mix.
 - **The same file uploaded twice counts once,** recognised by its fingerprint.
 - **First and last seen are the log's own event times, not the upload time:** they say when something happened.
