@@ -1,4 +1,4 @@
-"""The Dashboard tab: one computer's history at a glance. It only reads history; nothing here sends anything."""
+"""The Dashboard tab: one computer's history, or all computers at once. It only reads history and sends nothing."""
 
 import json
 

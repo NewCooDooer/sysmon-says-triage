@@ -2,7 +2,6 @@
 *.evtx
 logs/
 sent_record.csv
-lookup_cache.json
 
 # Python
 __pycache__/

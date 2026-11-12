@@ -48,7 +48,7 @@ def show_list(title, items):
 
 
 def gate_rows(summary, events):
-    """One row per address and name: what it is, whether it may leave this computer, and why."""
+    """One row per address, name and program hash: what it is, whether it may leave this computer, and why."""
     rows = []
     for ip in summary["addresses"]:
         allowed, reason = gate.may_send_ip(ip)
