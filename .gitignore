@@ -13,3 +13,6 @@ __pycache__/
 # Editors and macOS
 .DS_Store
 .vscode/
+
+# The history of uploads (M4) holds program paths and computer names
+history.db
