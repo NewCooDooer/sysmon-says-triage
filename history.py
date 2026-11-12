@@ -115,3 +115,27 @@ def latest_answers(kind):
     return {value: {"portal": kind, "value": value, "status": "answered", "score": score, "label": label,
                     "reasons": json.loads(reasons), "message": "", "checked_at": checked_at}
             for value, checked_at, label, score, reasons in rows}
+
+
+def read(sql, params=()):
+    """Run one SELECT and give back its rows as dictionaries ({column name: value})."""
+    db = connect()
+    db.row_factory = sqlite3.Row  # rows that know their column names
+    rows = [dict(row) for row in db.execute(sql, params)]
+    db.close()
+    return rows
+
+
+def computers():
+    """Every computer that has history, by name."""
+    return [row["computer"] for row in read("SELECT DISTINCT computer FROM uploads ORDER BY computer")]
+
+
+def uploads_of(computer):
+    """One computer's uploads, oldest events first."""
+    return read("SELECT * FROM uploads WHERE computer = ? ORDER BY first_event", (computer,))
+
+
+def sightings_of(computer):
+    """Everything ever seen on one computer."""
+    return read("SELECT * FROM sightings WHERE computer = ? ORDER BY kind, value", (computer,))

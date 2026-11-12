@@ -73,7 +73,8 @@ belong to the portals' outside services (the providers' published figures, check
 - **A file waits only if it passes all five "ordinary file" checks:** Microsoft label, system folder, run name matching its built-in original name, existed before the log, never touched the network. A fake must beat all five; failing one sends it to the queue.
 - **A file is never dropped because its connections looked clean:** malware often talks to trusted services.
 - **No Claude or other AI inside the tool:** nothing private can reach it because it is not in the pipeline.
-- **The page answers this computer only, and Streamlit's usage statistics are off:** otherwise the page itself would send data out.
+- **The page answers this computer only, Streamlit's usage statistics are off, and the font is served from this computer:** otherwise the page itself would send data out.
+- **The gold grid background is one small style rule, not a Streamlit setting:** the theme allows only a solid colour. It uses Streamlit's internal page name, which is stable while the version is pinned; if it changes, the page falls back to plain black.
 - **History is kept per computer, as Sysmon names it:** no setup, and organisations never mix.
 - **The same file uploaded twice counts once,** recognised by its fingerprint.
 - **First and last seen are the log's own event times, not the upload time:** they say when something happened.
@@ -81,6 +82,7 @@ belong to the portals' outside services (the providers' published figures, check
 - **A verdict belongs to the indicator, not the computer, and only real answers are saved:** one check covers every computer, and a failed lookup is simply tried again.
 - **Retro-hunting runs when the analyst presses a button, not on a timer:** nothing leaves without a button press.
 - **The dashboard interprets changes; it does not predict:** a few uploads can't support a forecast.
+- **New means first seen in the latest log; gone quiet means last seen before it; flagged means a portal's own label says suspicious, malicious or likely or definitely malware,** with no score threshold of our own.
 - **Share-safe export reuses the gate's rules, keeps the pseudonym key local, and refuses to export if any original name remains.**
 - **Logs, history, the sent record and the pseudonym key never go into git.**
 
