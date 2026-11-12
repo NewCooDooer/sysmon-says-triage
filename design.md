@@ -84,7 +84,8 @@ belong to the portals' outside services (the providers' published figures, check
 - **A verdict has changed when the label of its two newest answers differs; a new score with the same label is not a change:** small score drifts would bury real changes. The portals' own caches can delay a change by hours or days, never invent one.
 - **The dashboard interprets changes; it does not predict:** a few uploads can't support a forecast.
 - **New means first seen in the latest log; gone quiet means last seen before it; flagged means a portal's own label says suspicious, malicious or likely or definitely malware,** with no score threshold of our own.
-- **Share-safe export reuses the gate's rules, keeps the pseudonym key local, and refuses to export if any original name remains.**
+- **Share-safe export reuses the gate's rules, keeps the pseudonym key local, and refuses to export if any original name remains as a whole name:** a name found only inside a longer word (a user called "user" inside "Users") is listed for a check by hand instead, or such a machine could never be exported. Only values are replaced and checked, never field names.
+- **Command lines and clipboard text are left out of an export unless the analyst asks:** they can hold secrets no rule recognises, such as a password typed as an argument.
 - **Logs, history, the sent record and the pseudonym key never go into git.**
 
 ## Milestones

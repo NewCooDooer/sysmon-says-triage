@@ -16,3 +16,6 @@ __pycache__/
 
 # The history of uploads (M4) holds program paths and computer names
 history.db
+
+# The share-safe export's key: which stand-in is which real name (M8)
+pseudonym_key.json

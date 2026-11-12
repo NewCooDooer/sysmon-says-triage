@@ -4,6 +4,7 @@ import json
 
 import streamlit as st
 
+import export
 import history
 
 # The portals' own words for "worth a look". No score threshold of our own: each portal decides.
@@ -50,6 +51,18 @@ def change_table(changed):
     return [{"Kind": c["kind"], "Value": c["value"], "Before": said(c["before"]), "Now": said(c["now"]),
              "Seen on": ", ".join(f"{s['computer']} (last {s['last_seen'][:16]})" for s in history.seen_on(c["kind"], c["value"]))}
             for c in changed]
+
+
+def offer(content, whole, inside, file_name):
+    """A download button, but only if no name is left as a whole name; otherwise say which (on this screen only)."""
+    if whole:
+        st.error("Not safe to share, so there is no download. These names are still in it: " + ", ".join(whole))
+        return
+    st.download_button(f"Download {file_name}", content, file_name=file_name, on_click="ignore")  # ignore: no rerun
+    st.caption("Self-check passed: no name from the local key is left in it as a whole name. The key stays on this computer.")
+    if inside:
+        st.warning("Please check by hand: these names also appear inside longer words (examples from the file): "
+                   + "; ".join(f'"{name}" in "...{example}..."' for name, example in inside.items()))
 
 
 def show():
@@ -124,3 +137,18 @@ def show():
         left.bar_chart(by_type, x="Upload")
         right.caption("New items per upload: a jump means something changed")
         right.bar_chart({"Upload": dates, "New items": per_upload}, x="Upload")
+
+    st.space("medium")
+    with st.container(border=True):  # a framed box per section
+        st.subheader("Share-safe report")
+        st.caption("This computer's dashboard as an HTML file, with internal names replaced by stand-ins. A download only: "
+                   "nothing is sent.")
+        found = export.find_in_history(computer, sightings)
+        for name in names:  # every computer in history, because "Seen on" can name another one
+            export.add(found, name, "COMPUTER")
+        summary = {"Uploads": len(uploads)} | {label: sum(s["kind"] == kind for s in sightings) for kind, label in KINDS.items()}
+        sections = [("Summary", [summary]), ("Flagged by the portals", table(flagged, answers)),
+                    ("Verdicts that changed", change_table(changed)), ("New in the latest upload", table(new, answers)),
+                    ("Gone quiet", table(gone, answers))]
+        title = f"{computer}: latest log {uploads[-1]['first_event'][:16]} to {uploads[-1]['last_event'][:16]} (UTC)"
+        offer(*export.share_safe_report(title, sections, found), "share-safe-report.html")

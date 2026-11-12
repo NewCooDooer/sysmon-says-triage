@@ -4,6 +4,7 @@ Streamlit runs this whole file again, from top to bottom, every time the page ch
 """
 
 import csv
+import json
 import os
 import tempfile
 from collections import Counter
@@ -11,6 +12,7 @@ from collections import Counter
 import streamlit as st
 
 import dashboard
+import export
 import gate
 import hashes
 import history
@@ -192,6 +194,18 @@ with upload_tab:  # last, because st.stop() below ends the whole run when no log
             st.write(f"**{computer}:** upload {found['uploads']}. New since earlier uploads: "
                      + (", ".join(f"{kind} {n}" for kind, n in counts.items()) or "nothing") + ".")
             show_list(f"New for {computer}", [f"{kind}: {value}" for kind, value in found["new"]])
+
+    st.subheader("Share-safe copy of this log")
+    st.write("The events as a JSON file, with computer names, user names, internal names, private addresses and account "
+             "IDs replaced by stand-ins such as COMPUTER-1. A download only: nothing is sent.")
+    free_text = st.checkbox("Include command lines and clipboard text")
+    if free_text:
+        st.warning("Command lines can hold things no rule recognises, such as a password typed as an argument. They are "
+                   "scrubbed of known names only, and the self-check can only prove that known names are gone.")
+    dashboard.offer(*export.share_safe_log(events, free_text), "share-safe-log.json")  # *: its three results as three inputs
+    with st.expander("The key: which stand-in is which name (stays on this computer)"):
+        key = json.loads(export.KEY_FILE.read_text())
+        st.table([{"Stand-in": standin, "Original": original} for original, standin in sorted(key.items(), key=lambda kv: kv[1])])
 
     st.subheader("The three portals")
     ready = {portal: portals.is_ready(portal) for portal in portals.URLS}
