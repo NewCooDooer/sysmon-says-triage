@@ -78,6 +78,7 @@ belong to the portals' outside services (the providers' published figures, check
 - **The same file uploaded twice counts once,** recognised by its fingerprint.
 - **First and last seen are the log's own event times, not the upload time:** they say when something happened.
 - **Only indicators never checked before are looked up:** repeat uploads cost almost nothing, which also tames VirusTotal's limit.
+- **A verdict belongs to the indicator, not the computer, and only real answers are saved:** one check covers every computer, and a failed lookup is simply tried again.
 - **Retro-hunting runs when the analyst presses a button, not on a timer:** nothing leaves without a button press.
 - **The dashboard interprets changes; it does not predict:** a few uploads can't support a forecast.
 - **Share-safe export reuses the gate's rules, keeps the pseudonym key local, and refuses to export if any original name remains.**

@@ -18,14 +18,20 @@ CREATE TABLE IF NOT EXISTS uploads (computer TEXT, fingerprint TEXT, added_at TE
                                     counts TEXT, PRIMARY KEY (computer, fingerprint));
 CREATE TABLE IF NOT EXISTS sightings (computer TEXT, kind TEXT, value TEXT, first_seen TEXT, last_seen TEXT,
                                       uploads INTEGER, PRIMARY KEY (computer, kind, value));
+CREATE TABLE IF NOT EXISTS answers (kind TEXT, value TEXT, checked_at TEXT, label TEXT, score NUMERIC, reasons TEXT);
 """
 
 
 def connect():
-    """Open the history file, creating the two tables the first time."""
+    """Open the history file, creating the three tables the first time."""
     db = sqlite3.connect(HISTORY_DB)
     db.executescript(TABLES)
     return db
+
+
+def now():
+    """The time now, in UTC, to the second."""
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def fingerprint(file_bytes):
@@ -61,7 +67,7 @@ def indicators(events):
 def add_upload(file_bytes, events):
     """Add a log to each of its computers' history. Gives back, per computer: how many uploads it now has, whether this
     file was already there, whether it is the computer's first upload, and the indicators that are new for it."""
-    file_id, now = fingerprint(file_bytes), datetime.now(timezone.utc).isoformat(timespec="seconds")
+    file_id, added_at = fingerprint(file_bytes), now()
     results = {}
     db = connect()
     with db:  # saves every change together at the end, or none of them if something fails
@@ -72,7 +78,8 @@ def add_upload(file_bytes, events):
             if not already:
                 summary = read_log.summarize([event for event in events if event["computer"] == computer])
                 db.execute("INSERT INTO uploads VALUES (?, ?, ?, ?, ?, ?)",
-                           (computer, file_id, now, summary["first"], summary["last"], json.dumps(summary["by_type"])))
+                           (computer, file_id, added_at, summary["first"], summary["last"],
+                            json.dumps(summary["by_type"])))
                 for (kind, value), (first, last) in seen.items():
                     db.execute("""INSERT INTO sightings VALUES (?, ?, ?, ?, ?, 1)
                                   ON CONFLICT (computer, kind, value) DO UPDATE SET uploads = uploads + 1,
@@ -84,3 +91,27 @@ def add_upload(file_bytes, events):
                                  "new": [] if already else sorted(set(seen) - known)}
     db.close()
     return results
+
+
+def save_answer(found):
+    """Keep one portal answer with the time it was checked. Only real answers: a failure is tried again next time."""
+    if found["status"] != "answered":
+        return
+    db = connect()
+    with db:
+        db.execute("INSERT INTO answers VALUES (?, ?, ?, ?, ?, ?)",
+                   (found["portal"], found["value"], now(), found["label"], found["score"],
+                    json.dumps(found["reasons"])))
+    db.close()
+
+
+def latest_answers(kind):
+    """The newest answer for each value of one kind ("ip" or "domain"), as {value: answer} in portals.result's shape."""
+    db = connect()
+    rows = db.execute("SELECT value, checked_at, label, score, reasons FROM answers WHERE kind = ? "
+                      "ORDER BY checked_at, rowid", (kind,)).fetchall()
+    db.close()
+    # Rows come oldest first, so a newer answer for the same value replaces the older one in the dictionary.
+    return {value: {"portal": kind, "value": value, "status": "answered", "score": score, "label": label,
+                    "reasons": json.loads(reasons), "message": "", "checked_at": checked_at}
+            for value, checked_at, label, score, reasons in rows}
