@@ -1,4 +1,4 @@
-"""History per computer: each upload, and every indicator ever seen, kept in one local SQLite file (never in git).
+"""History per computer: each upload, every indicator ever seen, and every portal answer, in one local SQLite file.
 
 Plain SQL, no classes. Nothing here uses the network.
 """

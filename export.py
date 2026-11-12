@@ -107,7 +107,7 @@ def scrub(text, key):
 
 def leftovers(text, key):
     """The self-check, on the finished text: originals still there as whole names (a leak, so no download), and originals
-    found only inside a longer word, such as "user" inside "Users", each with an example, for the analyst to check by hand."""
+    found only inside a longer word, such as a computer called "gideonPC", with an example, for the analyst to check."""
     lower = text.lower()
     for standin in sorted(set(key.values()), key=len, reverse=True):  # the stand-ins out first: "user" is inside "USER-3"
         lower = lower.replace(standin.lower(), "#" * len(standin))  # the same length, so positions still match `text`
