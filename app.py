@@ -105,10 +105,15 @@ def show_recheck():
     st.write(f"History has verdicts for {len(known['ip'])} IP addresses, {len(known['domain'])} domain names and "
              f"{len(known['hash'])} file hashes. The oldest was checked {oldest[:16].replace('T', ' ')} (UTC).")
     kinds = st.multiselect("What to re-check", list(names), default=["ip", "domain"], format_func=names.get)
-    rows = sorted(({"kind": names[kind], "value": value, "checked_at": found["checked_at"]}
+    rows = sorted(({"kind": names[kind], "value": value, "checked_at": found["checked_at"], "label": found["label"]}
                    for kind in kinds for value, found in known[kind].items()), key=lambda row: row["checked_at"])
     st.caption("Only values sent once before are sent again, oldest checks first. The IP and DNS portals keep their own "
                "short-term caches, so a re-check soon after the last one may get the same answer back.")
+    with st.expander(f"What this button will send ({len(rows)})"):
+        st.caption("Each was checked once before. It is asked again because a portal's verdict can change; nothing leaves "
+                   "until you press the button, and each value is written to the sent record first.")
+        st.table([{"Kind": row["kind"], "Value": row["value"], "Verdict now": row["label"],
+                   "Last checked": row["checked_at"][:16].replace("T", " ")} for row in rows])
     slow = sum(row["kind"] == "File hash" for row in rows)
     if slow:
         st.caption(f"{slow} hashes, about {slow * portals.GAP['VirusTotal'] // 60 + 1} minutes: VirusTotal allows 4 a minute.")
@@ -227,9 +232,13 @@ with upload_tab:  # last, because st.stop() below ends the whole run when no log
     waiting = [row for row in to_send if row["value"] not in answers[row["kind"]] and row.get("waits")]
 
     st.subheader("Verdicts")
-    st.write(f"{len(checked)} of {len(to_send)} already checked: their verdicts come from history, so they are not sent again.")
+    st.write(f"This log has {len(rows)} addresses, names and program hashes. **{len(checked)}** already have a verdict "
+             f"from history (not sent again) · **{len(unchecked)}** are new and wait for the lookup button · "
+             f"**{len(waiting)}** look like ordinary Windows programs and wait for the second button · "
+             f"**{len(kept)}** stay on this computer (privacy gate).")
     if checked:
-        st.table([result_row(found) for found in checked])
+        with st.expander(f"Already checked: verdicts from history ({len(checked)})"):
+            st.table([result_row(found) for found in checked])
 
     can_ask = all(ready.values())
     if not can_ask:
@@ -238,6 +247,13 @@ with upload_tab:  # last, because st.stop() below ends the whole run when no log
     if slow:
         st.caption(f"{slow} hashes, about {slow * portals.GAP['VirusTotal'] // 60 + 1} minutes: VirusTotal allows 4 a minute. "
                    "Unusual programs come first.")
+    if unchecked:
+        with st.expander(f"What this button will send ({len(unchecked)})"):
+            st.caption("Each is new to history: no portal has judged it yet. Nothing leaves until you press the button, and "
+                       "each value is written to the sent record first.")
+            st.table([{"Kind": row["kind"], "Value": row["value"], "Why it's in this lookup": "first time in history"
+                       + (f" · {row['program']}: {row['reason']}" if row["kind"] == "File hash" else "")}
+                      for row in unchecked])
     label = f"Look up the {len(unchecked)} never checked" if unchecked else "Nothing new to look up"
     if st.button(label, disabled=not can_ask or not unchecked):
         look_up(unchecked)
