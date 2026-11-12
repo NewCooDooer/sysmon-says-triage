@@ -16,6 +16,16 @@ import history
 import portals
 import read_log
 
+# The page background: faint gold grid lines every 22 pixels over a dark glow. Streamlit's theme allows only one solid
+# colour, so this is a small style rule; .stApp is Streamlit's name for the whole page (stable while the version is pinned).
+BACKGROUND = """<style>
+.stApp { background:
+    repeating-linear-gradient(0deg, rgba(212,175,55,0.07) 0 1px, transparent 1px 22px),
+    repeating-linear-gradient(90deg, rgba(212,175,55,0.07) 0 1px, transparent 1px 22px),
+    radial-gradient(circle at 50% 0%, #1f1a0a 0%, #000 70%);
+  background-attachment: fixed; }
+.stApp header { background: transparent; }
+</style>"""
 
 @st.cache_data  # remember the answer for the same file, so the log is read once, not on every rerun
 def load(file_bytes):
@@ -68,6 +78,7 @@ def show_sent():
 
 
 st.set_page_config(page_title="Sysmon Says Triage", layout="wide")
+st.html(BACKGROUND)
 st.title("Sysmon Says Triage")
 dashboard_tab, upload_tab, sent_tab = st.tabs(["Dashboard", "Add a log", "What was sent"])
 with dashboard_tab:

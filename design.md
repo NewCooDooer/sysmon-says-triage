@@ -74,6 +74,7 @@ belong to the portals' outside services (the providers' published figures, check
 - **A file is never dropped because its connections looked clean:** malware often talks to trusted services.
 - **No Claude or other AI inside the tool:** nothing private can reach it because it is not in the pipeline.
 - **The page answers this computer only, Streamlit's usage statistics are off, and the font is served from this computer:** otherwise the page itself would send data out.
+- **The gold grid background is one small style rule, not a Streamlit setting:** the theme allows only a solid colour. It uses Streamlit's internal page name, which is stable while the version is pinned; if it changes, the page falls back to plain black.
 - **History is kept per computer, as Sysmon names it:** no setup, and organisations never mix.
 - **The same file uploaded twice counts once,** recognised by its fingerprint.
 - **First and last seen are the log's own event times, not the upload time:** they say when something happened.
