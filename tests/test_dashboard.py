@@ -1,6 +1,7 @@
 """Tests for the dashboard's logic (not its drawing). The uploads and sightings are hand-made, in history's shape."""
 
 import dashboard
+import history
 
 UPLOADS = [{"first_event": "2026-01-01 09:00", "last_event": "2026-01-01 10:00"},
            {"first_event": "2026-01-02 09:00", "last_event": "2026-01-02 10:00"}]
@@ -50,3 +51,28 @@ def test_newly_flagged_means_it_was_not_flagged_before():
 def test_a_hash_row_names_its_program_and_other_rows_do_not():
     rows = dashboard.table([sighting("hash", "aa11", "", ""), ARRIVED], {}, {"aa11": "C:\\Tools\\a.exe"})
     assert [row["Program"] for row in rows] == ["C:\\Tools\\a.exe", ""]
+
+
+def item(kind, value, computers, first_seen="2026-01-01 09:00"):
+    return {"kind": kind, "value": value, "computers": computers, "first_seen": first_seen}
+
+
+def test_the_overview_puts_widespread_flags_and_rare_items_in_order():
+    answers = {"domain": {"bad.example": {"label": "Likely malware"}, "worse.example": {"label": "Definitely malware"},
+                          "odd.example": {"label": "Likely malware"}}}
+    items = [item("domain", "bad.example", 2), item("domain", "worse.example", 5), item("domain", "fine.example", 3),
+             item("program", "old.exe", 1, "2026-01-01"), item("program", "new.exe", 1, "2026-01-03"),
+             item("domain", "odd.example", 1, "2026-01-02"), item("launch", "a -> b", 1)]
+    spread, rare = dashboard.fleet(items, answers)
+    assert [i["value"] for i in spread] == ["worse.example", "bad.example"]  # flagged and on several, most widespread first
+    assert [i["value"] for i in rare] == ["odd.example", "new.exe", "old.exe"]  # flagged first, then newest; no launches
+
+
+def test_computers_are_listed_most_flagged_first(monkeypatch, tmp_path):
+    monkeypatch.setattr(history, "HISTORY_DB", tmp_path / "history.db")
+    events = [{"id": 22, "time": "2026-01-01 09:00", "computer": computer, "fields": {"QueryName": name}}
+              for computer, name in [("PC-1", "fine.example"), ("PC-2", "bad.example"), ("PC-2", "worse.example")]]
+    history.add_upload(b"log one", events)
+    answers = {"domain": {"bad.example": {"label": "Likely malware"}, "worse.example": {"label": "Likely malware"}}}
+    rows = dashboard.computer_rows(answers, [])
+    assert [(row["Computer"], row["Flagged"]) for row in rows] == [("PC-2", 2), ("PC-1", 0)]
