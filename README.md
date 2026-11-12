@@ -1,7 +1,8 @@
 # Sysmon Says Triage
 
-A local web page that helps a SOC analyst work through a Sysmon log: it finds the file hashes, domain names and IP addresses
-in the log, keeps anything private on this computer, and asks three lookup portals about the rest. How it works: [design.md](design.md).
+A local web page that keeps a history of Sysmon logs per computer: it shows what is new or gone since earlier logs, re-checks
+older file hashes, domain names and IP addresses with three lookup portals to catch threats after the fact, and exports a
+scrubbed copy that is safe to share. Anything private stays on this computer. How it works: [design.md](design.md).
 
 > Use it only with the three portal backends running on this computer, unchanged: [hash](https://github.com/gr-aleph/hash-enrich-2),
 > [domain](https://github.com/NewCooDooer/ioc-simple-dns) and [IP](https://github.com/Bed-e/enrichment-portal-simple). Start each as its own README says.

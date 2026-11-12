@@ -1,31 +1,39 @@
 # Sysmon Says Triage: design
 
-This file holds the goal, the architecture, the portal contracts we call, the data sources, the main decisions with their
-reasons, and the milestones. Numbers from our code are in the code, not here. The history of each change is in its pull request.
+This file holds the goal, the architecture, what history keeps, the portal contracts we call, the data sources, the main
+decisions with their reasons, and the milestones. Numbers from our code are in the code, not here. The history of each change
+is in its pull request.
 
 ## Goal and scope
 
-**The user:** a SOC analyst reviewing one Windows computer's Sysmon log (an `.evtx` file).
-**The situation:** a log holds hundreds or thousands of events, and most are ordinary.
-**What they need to know:** which programs did something worth a look, what those programs connected to or asked for,
-and what the three lookups (file hash, domain name, IP address) say about them, within minutes, without anything private
-leaving the machine.
+**The user:** a SOC analyst or team lead who receives Sysmon logs from the same computers over time.
+**The situation:** each log is read once and forgotten; threat intelligence keeps changing afterwards; and logs can't be shared
+outside because they are full of internal names.
+**What they need to know:** what is new or gone on each computer since its earlier logs, whether anything once judged clean is
+now known to be bad, and how to share findings without leaking anything.
 
-Out of scope: a server or API of our own; any change to the three portals; several computers' logs at once; a rules engine;
-Claude or any AI inside the tool; storing anything beyond a local lookup cache and a local record of what was sent.
+Out of scope: a server of our own; changes to the portals; storing whole logs; forecasting; AI inside the tool.
 
 ## Architecture
 
 ```
 events.evtx --> Sysmon Says Triage (Streamlit, this repo) --HTTP--> hash portal --> VirusTotal, MalwareBazaar, ThreatFox
-                reads, filters, ranks, shows                --HTTP--> DNS portal  --> Google DNS, RDAP, crt.sh
-                                                            --HTTP--> IP portal   --> Shodan InternetDB, RDAP, AbuseIPDB
+                reads, gates, remembers, compares           --HTTP--> DNS portal  --> Google DNS, RDAP, crt.sh
+                        |                                   --HTTP--> IP portal   --> Shodan InternetDB, RDAP, AbuseIPDB
+                  history.db (local only)
 ```
 
 - Four programs run on the analyst's computer: this app and the three portal backends, each started from its own folder, unchanged.
 - This app is a **client** of the portals: it reads the log, decides what may leave (the privacy gate), and asks the portals.
 - **What leaves the machine:** only the IP addresses, domain names and file hashes that pass the privacy gate, sent to the portals,
-  which pass them to the outside services shown above. Command lines, user names, computer names, paths and registry entries never leave.
+  which pass them to the outside services shown above. Command lines, user names, computer names, paths and registry entries never leave. A share-safe export is a local file; it leaves only if the analyst sends it.
+
+## What history keeps
+
+One local file, never in git:
+- each upload: computer, date, time span, a file fingerprint, counts per event type;
+- each indicator per computer: first seen, last seen, number of uploads;
+- each portal answer, with the date it was checked (older answers kept).
 
 ## The portals we call (their contracts, unchanged)
 
@@ -38,7 +46,8 @@ events.evtx --> Sysmon Says Triage (Streamlit, this repo) --HTTP--> hash portal 
 All three use 0 = least risk and 100 = most. The labels differ, so the app shows each portal's own label and never turns
 "no known bad" into "safe". Readiness: the hash and DNS portals have a health route; the IP portal is asked about a private
 address, which its contract answers without contacting any outside service. A refusal (400) or the IP portal's "every source
-failed" (503) is shown as such, never as a verdict.
+failed" (503) is shown as such, never as a verdict. Only a program's SHA-256 goes to the hash portal, never its IMPHASH, which
+the portal would mistake for an MD5.
 
 ## Data sources: keys, limits and terms
 
@@ -61,15 +70,17 @@ belong to the portals' outside services (the providers' published figures, check
 - **Privacy gate, six rules:** only public IP addresses are sent; a name without a dot, with an internal ending, or that resolved to a company-network address stays local (not 127.0.0.1 or 0.0.0.0, where dormant malware domains are parked); only hashes of programs are sent; everything sent is written to a local record.
 - **Every rule works from the log itself, with no setup:** logs come from different organisations, and a fixed settings file would be wrong for every other one.
 - **When a log lacks something, a rule fails towards checking more,** never towards hiding something.
-- **Duplicate hashes are collapsed, and past answers are remembered locally:** one lookup per distinct file, and none for a file already checked.
 - **A file waits only if it passes all five "ordinary file" checks:** Microsoft label, system folder, run name matching its built-in original name, existed before the log, never touched the network. A fake must beat all five; failing one sends it to the queue.
-- **The queue is ranked:** dropped during the log and then run, then talked to the internet, then identity mismatches, then unusual folders. A bad IP or domain result moves the program behind it to the front.
 - **A file is never dropped because its connections looked clean:** malware often talks to trusted services.
-- **Results arrive as a live feed in batches:** the first batch is every file meeting a critical rule, capped in time; then the page offers the next batch with its estimated time. Nothing is skipped silently.
-- **While waiting for VirusTotal's next slot, the app does the IP and domain lookups:** all three lookups progress together with no extra machinery.
 - **No Claude or other AI inside the tool:** nothing private can reach it because it is not in the pipeline.
 - **The page answers this computer only, and Streamlit's usage statistics are off:** otherwise the page itself would send data out.
-- **Logs, the lookup cache and the sent record never go into git.**
+- **History is kept per computer, as Sysmon names it:** no setup, and organisations never mix.
+- **The same file uploaded twice counts once,** recognised by its fingerprint.
+- **Only indicators never checked before are looked up:** repeat uploads cost almost nothing, which also tames VirusTotal's limit.
+- **Retro-hunting runs when the analyst presses a button, not on a timer:** nothing leaves without a button press.
+- **The dashboard interprets changes; it does not predict:** a few uploads can't support a forecast.
+- **Share-safe export reuses the gate's rules, keeps the pseudonym key local, and refuses to export if any original name remains.**
+- **Logs, history, the sent record and the pseudonym key never go into git.**
 
 ## Milestones
 
@@ -78,6 +89,10 @@ Each is done when its pull request is merged; the PR holds the evidence and the 
 - **M0 Design:** this file and a README; the repository exists.
 - **M1 Read the log:** an `.evtx` file becomes plain events, and the page shows what was learned from the log; tests pass offline.
 - **M2 Privacy gate, IP and domain lookups:** the three portals are checked for readiness, the gate decides what is sent, and the page shows the IP and domain verdicts and what was sent or kept local.
-- **M3 File hashes:** the five checks, the ranked queue, the first batch as a live feed with progress, and the offer of the next batch.
-- **M4 Context:** each finding is linked to the program behind it, with a view per program.
-- **M5 Demo and documents:** a scenario log from a Windows machine, a pre-run cache for the demo, and final documents.
+- **M3 Design update:** this file describes the history, retro-hunting and share-safe product.
+- **M4 History:** every upload is added to the local history per computer, and the page shows which indicators are new.
+- **M5 Dashboard:** what is new, what has gone quiet and the trends across uploads, in the new look; only new indicators are looked up.
+- **M6 File hashes:** new program hashes are looked up through the hash portal, ordered by the five "ordinary file" checks.
+- **M7 Retro-hunting:** older indicators are re-checked on request, and every changed verdict is shown with its context.
+- **M8 Share-safe export:** scrubbed events and the dashboard report; the pseudonym key stays local and the self-check passes.
+- **M9 Demo and defence:** logs from a Windows machine, final documents and a rehearsed demo.
