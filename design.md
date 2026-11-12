@@ -58,7 +58,7 @@ belong to the portals' outside services (the providers' published figures, check
 - **Nothing leaves the computer until the analyst presses the lookup button:** the page first shows what will be sent and what stays local, with the reason for each.
 - **Only one function sends a value from the log, and it writes the value to the local sent record before sending it:** nothing can be sent without being recorded.
 - **Requests towards the same outside service keep a minimum gap:** the IP and domain portals both reach rdap.org, and a burst of lookups made it refuse, which raised the portals' scores.
-- **Privacy gate, six rules:** only public IP addresses are sent; a name without a dot, with an internal ending, or that resolved to a private address stays local; only hashes of programs are sent; everything sent is written to a local record.
+- **Privacy gate, six rules:** only public IP addresses are sent; a name without a dot, with an internal ending, or that resolved to a company-network address stays local (not 127.0.0.1 or 0.0.0.0, where dormant malware domains are parked); only hashes of programs are sent; everything sent is written to a local record.
 - **Every rule works from the log itself, with no setup:** logs come from different organisations, and a fixed settings file would be wrong for every other one.
 - **When a log lacks something, a rule fails towards checking more,** never towards hiding something.
 - **Duplicate hashes are collapsed, and past answers are remembered locally:** one lookup per distinct file, and none for a file already checked.

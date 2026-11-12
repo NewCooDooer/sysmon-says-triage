@@ -37,9 +37,20 @@ def test_internal_and_reverse_lookup_endings_stay_local():
         assert gate.may_send_name(name) == (False, "an internal or reverse-lookup ending"), name
 
 
-def test_a_name_that_resolved_to_a_private_address_stays_local():
-    assert gate.may_send_name("wiki.example.com", "type: 5 web.example.com;10.0.0.5;") == (
-        False, "it resolved to a private address, so it is internal")
+def test_a_name_that_resolved_to_a_company_network_address_stays_local():
+    for answer in ("type: 5 web.example.com;10.0.0.5;", "172.20.1.1;", "::ffff:192.168.1.20;", "fd12::5;"):
+        assert gate.may_send_name("wiki.example.com", answer) == (
+            False, "it resolved to a company-network address, so it is internal"), answer
+
+
+def test_a_name_parked_on_this_computer_or_nowhere_is_still_checked():
+    # Malware operators often point a dormant domain at 127.0.0.1 or 0.0.0.0; it must not be hidden from the lookups.
+    for answer in ("127.0.0.1;", "0.0.0.0;", "::1;", "169.254.1.1;"):
+        assert gate.may_send_name("c2.example.net", answer) == (True, "an internet name"), answer
+
+
+def test_a_look_alike_of_a_company_name_is_still_checked():
+    assert gate.may_send_name("evilcorp.com", "93.184.215.14;") == (True, "an internet name")
 
 
 def test_an_internet_name_may_be_sent():

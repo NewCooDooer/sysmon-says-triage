@@ -8,6 +8,10 @@ import ipaddress
 # Name endings that are internal by convention, or are reverse lookups (an address written as a name, ending in .arpa).
 INTERNAL_ENDINGS = (".local", ".lan", ".internal", ".corp", ".home", ".localdomain", ".intranet", ".arpa")
 
+# The address ranges set aside for an organisation's own network. Only an answer in one of these makes a name internal:
+# 127.0.0.1 or 0.0.0.0 is where malware operators often park a dormant domain, so those names are still checked.
+COMPANY_NETWORKS = [ipaddress.ip_network(text) for text in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7")]
+
 
 def as_address(text):
     """The text as an IP address, or None if it is not one. "::ffff:1.2.3.4" is an IPv4 address written in IPv6 style."""
@@ -46,6 +50,6 @@ def may_send_name(name, query_results=""):
         return False, "a single word: a computer's local name"
     if name.endswith(INTERNAL_ENDINGS):  # endswith() accepts a group of endings and is True if any one matches
         return False, "an internal or reverse-lookup ending"
-    if any(not address.is_global for address in answers_of(query_results)):
-        return False, "it resolved to a private address, so it is internal"
+    if any(address in network for address in answers_of(query_results) for network in COMPANY_NETWORKS):
+        return False, "it resolved to a company-network address, so it is internal"
     return True, "an internet name"
