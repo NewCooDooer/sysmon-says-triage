@@ -48,9 +48,10 @@ def result_row(found):
     """One lookup result as a table row, in the portal's own words."""
     if found["status"] == "answered":
         return {"Kind": found["portal"], "Value": found["value"], "Portal's verdict": found["label"],
-                "Score (0 = least risk)": found["score"], "Why": "; ".join(found["reasons"])}
+                "Score (0 = least risk)": found["score"], "Checked": found.get("checked_at", "just now"),
+                "Why": "; ".join(found["reasons"])}
     return {"Kind": found["portal"], "Value": found["value"], "Portal's verdict": f"not looked up ({found['status']})",
-            "Score (0 = least risk)": None, "Why": found["message"]}
+            "Score (0 = least risk)": None, "Checked": None, "Why": found["message"]}
 
 
 st.title("Sysmon Says Triage")
@@ -61,7 +62,7 @@ if upload is None:
     st.stop()  # nothing chosen yet: stop here, and Streamlit shows the page so far
 if st.session_state.get("log_id") != upload.file_id:  # a different log: forget the previous log's lookups
     st.session_state["log_id"] = upload.file_id
-    st.session_state["results"] = []
+    st.session_state["failed"] = []
     st.session_state["history"] = None
 
 events = load(upload.getvalue())
@@ -108,19 +109,35 @@ with st.expander(f"Will be sent to a portal ({len(to_send)})"):
 with st.expander(f"Stays on this computer ({len(kept)})", expanded=True):
     st.table([{"Kind": r["kind"], "Value": r["value"], "Why": r["reason"]} for r in kept])
 
+answers = {"IP address": history.latest_answers("ip"), "Domain name": history.latest_answers("domain")}
+checked = [answers[row["kind"]][row["value"]] for row in to_send if row["value"] in answers[row["kind"]]]
+unchecked = [row for row in to_send if row["value"] not in answers[row["kind"]]]
+
+st.subheader("Verdicts")
+st.write(f"{len(checked)} of {len(to_send)} already checked: their verdicts come from history, so they are not sent again.")
+if checked:
+    st.table([result_row(found) for found in checked])
+
 can_ask = ready["ip"] and ready["domain"]
 if not can_ask:
     st.info("Start the IP and domain portals to look these up.")
-if st.button(f"Look up the {len(to_send)} addresses and names that may be sent", disabled=not can_ask or not to_send):
-    st.session_state["results"] = []
+label = f"Look up the {len(unchecked)} never checked" if unchecked else "Nothing new to look up"
+if st.button(label, disabled=not can_ask or not unchecked):
+    st.session_state["failed"] = []
     bar = st.progress(0.0, text="Asking the portals (a new domain name can take up to a minute)...")
     table_spot = st.empty()  # a placeholder that is redrawn after every answer, so results appear as they arrive
-    for done, row in enumerate(to_send, start=1):
+    found_now = []
+    for done, row in enumerate(unchecked, start=1):
         found = portals.ask_ip(row["value"]) if row["kind"] == "IP address" else portals.ask_domain(row["value"])
-        st.session_state["results"].append(found)
-        bar.progress(done / len(to_send), text=f"{done} of {len(to_send)} looked up")
-        table_spot.table([result_row(f) for f in st.session_state["results"]])
-elif st.session_state["results"]:
-    st.table([result_row(f) for f in st.session_state["results"]])
-if st.session_state["results"]:
+        history.save_answer(found)
+        found_now.append(found)
+        if found["status"] != "answered":
+            st.session_state["failed"].append(found)
+        bar.progress(done / len(unchecked), text=f"{done} of {len(unchecked)} looked up")
+        table_spot.table([result_row(f) for f in found_now])
+    st.rerun()  # draw the page again: the new verdicts now come from history
+if st.session_state["failed"]:
+    st.warning("Not looked up this time; they will be tried again next time:")
+    st.table([result_row(found) for found in st.session_state["failed"]])
+if portals.SENT_RECORD.exists():
     st.caption(f"Every value sent is listed, with the time and the portal, in {portals.SENT_RECORD.name} (on this computer only).")
