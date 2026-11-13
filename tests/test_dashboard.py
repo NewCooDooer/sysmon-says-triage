@@ -76,3 +76,11 @@ def test_computers_are_listed_most_flagged_first(monkeypatch, tmp_path):
     answers = {"domain": {"bad.example": {"label": "Likely malware"}, "worse.example": {"label": "Likely malware"}}}
     rows = dashboard.computer_rows(answers, [])
     assert [(row["Computer"], row["Flagged"]) for row in rows] == [("PC-2", 2), ("PC-1", 0)]
+
+
+def test_a_flagged_row_says_why_in_the_portals_own_words():
+    reasons = ["dns: short lifetimes (+20)", "crtsh: new (+25)"]  # in the portal's own words
+    answers = {"domain": {"example.com": {"label": "Likely malware", "reasons": reasons}}}
+    assert dashboard.why(ARRIVED, answers) == "dns: short lifetimes (+20); crtsh: new (+25)"
+    assert dashboard.why(STAYED, answers) == ""  # never checked: no reasons
+    assert dashboard.table([ARRIVED], answers, {})[0]["Why"] == "dns: short lifetimes (+20); crtsh: new (+25)"

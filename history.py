@@ -174,7 +174,7 @@ def prevalence():
 def changes():
     """Every value whose two newest answers have different labels, with both answers: "before" and "now"."""
     answers = {}  # (kind, value) -> its answers, oldest first
-    for row in read("SELECT kind, value, checked_at, label, score FROM answers ORDER BY checked_at, rowid"):
+    for row in read("SELECT kind, value, checked_at, label, score, reasons FROM answers ORDER BY checked_at, rowid"):
         answers.setdefault((row["kind"], row["value"]), []).append(row)
     return [{"kind": kind, "value": value, "before": found[-2], "now": found[-1]}
             for (kind, value), found in answers.items() if len(found) > 1 and found[-2]["label"] != found[-1]["label"]]

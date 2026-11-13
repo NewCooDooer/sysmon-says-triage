@@ -102,6 +102,7 @@ def test_a_change_is_a_different_label_between_the_two_newest_answers(monkeypatc
     assert [(c["value"], c["before"]["label"], c["now"]["label"]) for c in found] == [
         ("example.com", "Likely safe", "Likely malware")]
     assert found[0]["now"]["checked_at"] == "2026-01-02T09:00:00+00:00"
+    assert found[0]["now"]["reasons"] == '["a reason"]'  # the new verdict's reasons come too, so the page can say why
 
 
 def test_seen_on_names_each_computer_and_when_last():
