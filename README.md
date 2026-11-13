@@ -19,13 +19,15 @@ source .venv/bin/activate     # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt
 ```
 
+An older copy used `python-evtx`: run `pip uninstall python-evtx` first, because on a Mac it and `evtx` share a folder.
+
 ## Run
 
 ```bash
 streamlit run app.py
 ```
 
-It prints its address. Open it and choose a Sysmon log (`.evtx`); the log is read on this computer only.
+It prints its address. Open it and choose a Sysmon log (`.evtx`, up to 2 GB); the log is read on this computer only.
 
 ## Test
 

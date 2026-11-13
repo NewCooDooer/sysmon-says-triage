@@ -3,6 +3,8 @@
 address = "127.0.0.1"
 # Serve the files in static/ (the Quantico font) from this computer, so the page never fetches fonts from the internet.
 enableStaticServing = true
+# The largest log the page accepts, in megabytes. Streamlit's default is 200; a busy computer's Sysmon log is often bigger.
+maxUploadSize = 2048
 
 # Streamlit sends usage statistics to its company by default; nothing may leave this machine, so they are off.
 [browser]

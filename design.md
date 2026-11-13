@@ -76,6 +76,8 @@ belong to the portals' outside services (the providers' published figures, check
 - **No Claude or other AI inside the tool:** nothing private can reach it because it is not in the pipeline.
 - **The page answers this computer only, Streamlit's usage statistics are off, and the font is served from this computer:** otherwise the page itself would send data out.
 - **The gold grid background is one small style rule, not a Streamlit setting:** the theme allows only a solid colour. It uses Streamlit's internal page name, which is stable while the version is pinned; if it changes, the page falls back to plain black.
+- **Logs up to 2 GB are accepted, and read with the `evtx` library, written in Rust:** a busy computer's log is often bigger than Streamlit's 200 MB default, and the pure-Python reader took 13 minutes for a 345 MB log; this one takes about 10 seconds.
+- **The share-safe copy of a log is made when the analyst asks for it, then kept for that log:** on a big log it takes seconds, and Streamlit would otherwise make it again on every click.
 - **History is kept per computer, as Sysmon names it:** no setup, and organisations never mix.
 - **The same file uploaded twice counts once,** recognised by its fingerprint.
 - **First and last seen are the log's own event times, not the upload time:** they say when something happened.
