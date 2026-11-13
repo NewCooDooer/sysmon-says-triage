@@ -196,6 +196,8 @@ def show():
     st.space("medium")
     with st.container(border=True):  # a framed box per section
         st.subheader("New in the latest upload")
+        st.caption("Seen on this computer for the first time in its latest log: no earlier upload had it. A launch is "
+                   "\"parent program -> program\"; launches are never looked up, so they have no verdict.")
         if first:
             st.write("This is the first upload for this computer, so everything is new.")
         else:
