@@ -1,6 +1,7 @@
 """The page. Start it from the project folder with:  streamlit run app.py
 
-Streamlit runs this whole file again, from top to bottom, every time the page changes (a file is chosen, a button is clicked).
+Streamlit runs this whole file again, from top to bottom, every time the page changes (a file is chosen, a button is
+clicked), so main() at the bottom draws the whole page again each time.
 """
 
 import csv
@@ -147,36 +148,8 @@ def show_sent():
     st.dataframe(rows[::-1], hide_index=True)  # [::-1]: the list reversed, so the newest is first
 
 
-st.set_page_config(page_title="Sysmon Says Triage", layout="wide")
-st.html(BACKGROUND)
-st.title("Sysmon Says Triage")
-dashboard_tab, upload_tab, recheck_tab, sent_tab = st.tabs(["Dashboard", "Add a log", "Re-check", "What was sent"])
-with dashboard_tab:
-    dashboard.show()
-with recheck_tab:
-    show_recheck()
-with sent_tab:
-    show_sent()
-with upload_tab:  # last, because st.stop() below ends the whole run when no log is chosen
-    st.write("Choose a Sysmon log (.evtx). It is read on this computer; nothing leaves it until you press the lookup button.")
-
-    upload = st.file_uploader("Sysmon log", type=["evtx"])
-    if upload is None:
-        st.stop()  # nothing chosen yet: stop here, and Streamlit shows the page so far
-    if st.session_state.get("log_id") != upload.file_id:  # a different log: forget the previous log's lookups
-        st.session_state["log_id"] = upload.file_id
-        st.session_state["failed"] = []
-        st.session_state["history"] = None
-
-    events = load(upload.getvalue())
-    if not events:
-        st.warning("This file has no Sysmon events in it.")
-        st.stop()
-    if st.session_state["history"] is None:  # once per chosen file, because Streamlit reruns this script on every click
-        st.session_state["history"] = history.add_upload(upload.getvalue(), events)
-        st.rerun()  # run the page again, so the Dashboard tab (drawn first) includes this log
-
-    summary = read_log.summarize(events)
+def show_summary(summary):
+    """What the log holds: how many events of each type, which computers, which programs started."""
     st.subheader("What we learned from this log")
     left, middle, right = st.columns(3)
     left.metric("Sysmon events", summary["events"])
@@ -188,8 +161,11 @@ with upload_tab:  # last, because st.stop() below ends the whole run when no log
     show_list("Computers", summary["computers"])
     show_list("Programs that started", summary["programs"])
 
+
+def show_history(added):
+    """What adding this log to history found, per computer: already there, a first upload, or what is new."""
     st.subheader("History")
-    for computer, found in st.session_state["history"].items():
+    for computer, found in added.items():
         if found["already"]:
             st.write(f"**{computer}:** this file is already in history, so nothing was added ({found['uploads']} uploads so far).")
         elif found["first"]:
@@ -200,6 +176,9 @@ with upload_tab:  # last, because st.stop() below ends the whole run when no log
                      + (", ".join(f"{kind} {n}" for kind, n in counts.items()) or "nothing") + ".")
             show_list(f"New for {computer}", [f"{kind}: {value}" for kind, value in found["new"]])
 
+
+def show_share_safe(events):
+    """The share-safe copy of the log to download, and the key that translates its stand-ins back."""
     st.subheader("Share-safe copy of this log")
     st.write("The events as a JSON file, with computer names, user names, internal names, private addresses and account "
              "IDs replaced by stand-ins such as COMPUTER-1. A download only: nothing is sent.")
@@ -212,6 +191,48 @@ with upload_tab:  # last, because st.stop() below ends the whole run when no log
         key = json.loads(export.KEY_FILE.read_text())
         st.table([{"Stand-in": standin, "Original": original} for original, standin in sorted(key.items(), key=lambda kv: kv[1])])
 
+
+def split_by_history(to_send, answers):
+    """The rows the gate lets out, in three groups: verdicts history already has (as those verdicts), new ones for the
+    lookup button, and ordinary-looking programs for the second button. `answers`: history's newest verdict per kind."""
+    checked = [answers[row["kind"]][row["value"]] for row in to_send if row["value"] in answers[row["kind"]]]
+    unchecked = [row for row in to_send if row["value"] not in answers[row["kind"]] and not row.get("waits")]
+    waiting = [row for row in to_send if row["value"] not in answers[row["kind"]] and row.get("waits")]
+    return checked, unchecked, waiting
+
+
+def show_new(unchecked, can_ask):
+    """The values no portal has judged yet: what the button will send and why, and the button."""
+    slow = sum(row["kind"] == "File hash" for row in unchecked)
+    if slow:
+        st.caption(f"{slow} hashes, about {slow * portals.GAP['VirusTotal'] // 60 + 1} minutes: VirusTotal allows 4 a minute. "
+                   "Unusual programs come first.")
+    if unchecked:
+        with st.expander(f"What this button will send ({len(unchecked)})"):
+            st.caption("Each is new to history: no portal has judged it yet. Nothing leaves until you press the button, and "
+                       "each value is written to the sent record first.")
+            st.table([{"Kind": row["kind"], "Value": row["value"], "Why it's in this lookup": "first time in history"
+                       + (f" · {row['program']}: {row['reason']}" if row["kind"] == "File hash" else "")}
+                      for row in unchecked])
+    label = f"Look up the {len(unchecked)} never checked" if unchecked else "Nothing new to look up"
+    if st.button(label, disabled=not can_ask or not unchecked):
+        look_up(unchecked)
+
+
+def show_waiting(waiting, can_ask):
+    """The programs that passed all five "ordinary file" checks: listed, with their own button."""
+    if not waiting:
+        return
+    with st.expander(f"Waiting: programs that look like ordinary Windows files ({len(waiting)})"):
+        st.caption("Each passed all five checks: labelled Microsoft, inside the Windows folder, run under its own name, "
+                   "not created during the log, and no network use.")
+        st.table([{"Program": row["program"], "SHA-256": row["value"]} for row in waiting])
+    if st.button(f"Look up the {len(waiting)} ordinary ones too", disabled=not can_ask):
+        look_up(waiting)
+
+
+def show_lookups(summary, events):
+    """The portals, the privacy gate, and the verdicts: what may leave this computer, and the buttons that send it."""
     st.subheader("The three portals")
     ready = {portal: portals.is_ready(portal) for portal in portals.URLS}
     st.write(" · ".join(f"{portal} portal: {'running' if up else 'NOT running'}" for portal, up in ready.items()))
@@ -227,10 +248,7 @@ with upload_tab:  # last, because st.stop() below ends the whole run when no log
 
     answers = {"IP address": history.latest_answers("ip"), "Domain name": history.latest_answers("domain"),
                "File hash": history.latest_answers("hash")}
-    checked = [answers[row["kind"]][row["value"]] for row in to_send if row["value"] in answers[row["kind"]]]
-    unchecked = [row for row in to_send if row["value"] not in answers[row["kind"]] and not row.get("waits")]
-    waiting = [row for row in to_send if row["value"] not in answers[row["kind"]] and row.get("waits")]
-
+    checked, unchecked, waiting = split_by_history(to_send, answers)
     st.subheader("Verdicts")
     st.write(f"This log has {len(rows)} addresses, names and program hashes. **{len(checked)}** already have a verdict "
              f"from history (not sent again) · **{len(unchecked)}** are new and wait for the lookup button · "
@@ -239,33 +257,57 @@ with upload_tab:  # last, because st.stop() below ends the whole run when no log
     if checked:
         with st.expander(f"Already checked: verdicts from history ({len(checked)})"):
             st.table([result_row(found) for found in checked])
-
     can_ask = all(ready.values())
     if not can_ask:
         st.info("Start the three portals to look these up.")
-    slow = sum(row["kind"] == "File hash" for row in unchecked)
-    if slow:
-        st.caption(f"{slow} hashes, about {slow * portals.GAP['VirusTotal'] // 60 + 1} minutes: VirusTotal allows 4 a minute. "
-                   "Unusual programs come first.")
-    if unchecked:
-        with st.expander(f"What this button will send ({len(unchecked)})"):
-            st.caption("Each is new to history: no portal has judged it yet. Nothing leaves until you press the button, and "
-                       "each value is written to the sent record first.")
-            st.table([{"Kind": row["kind"], "Value": row["value"], "Why it's in this lookup": "first time in history"
-                       + (f" · {row['program']}: {row['reason']}" if row["kind"] == "File hash" else "")}
-                      for row in unchecked])
-    label = f"Look up the {len(unchecked)} never checked" if unchecked else "Nothing new to look up"
-    if st.button(label, disabled=not can_ask or not unchecked):
-        look_up(unchecked)
-    if waiting:
-        with st.expander(f"Waiting: programs that look like ordinary Windows files ({len(waiting)})"):
-            st.caption("Each passed all five checks: labelled Microsoft, inside the Windows folder, run under its own name, "
-                       "not created during the log, and no network use.")
-            st.table([{"Program": row["program"], "SHA-256": row["value"]} for row in waiting])
-        if st.button(f"Look up the {len(waiting)} ordinary ones too", disabled=not can_ask):
-            look_up(waiting)
+    show_new(unchecked, can_ask)
+    show_waiting(waiting, can_ask)
     if st.session_state["failed"]:
         st.warning("Not looked up this time; they will be tried again next time:")
         st.table([result_row(found) for found in st.session_state["failed"]])
     if portals.SENT_RECORD.exists():
         st.caption('Every value sent is listed, with the time and the portal, in the "What was sent" tab.')
+
+
+def show_upload():
+    """The "Add a log" tab: read the chosen log, add it to history once, then show what it holds and what may leave."""
+    st.write("Choose a Sysmon log (.evtx). It is read on this computer; nothing leaves it until you press the lookup button.")
+    upload = st.file_uploader("Sysmon log", type=["evtx"])
+    if upload is None:
+        return  # nothing chosen yet
+    if st.session_state.get("log_id") != upload.file_id:  # a different log: forget the previous log's lookups
+        st.session_state["log_id"] = upload.file_id
+        st.session_state["failed"] = []
+        st.session_state["history"] = None
+    events = load(upload.getvalue())
+    if not events:
+        st.warning("This file has no Sysmon events in it.")
+        return
+    if st.session_state["history"] is None:  # once per chosen file, because Streamlit reruns this script on every click
+        st.session_state["history"] = history.add_upload(upload.getvalue(), events)
+        st.rerun()  # run the page again, so the Dashboard tab (drawn first) includes this log
+    summary = read_log.summarize(events)
+    show_summary(summary)
+    show_history(st.session_state["history"])
+    show_share_safe(events)
+    show_lookups(summary, events)
+
+
+def main():
+    """Draw the page: the title and the four tabs, each drawn by its own function."""
+    st.set_page_config(page_title="Sysmon Says Triage", layout="wide")
+    st.html(BACKGROUND)
+    st.title("Sysmon Says Triage")
+    dashboard_tab, upload_tab, recheck_tab, sent_tab = st.tabs(["Dashboard", "Add a log", "Re-check", "What was sent"])
+    with dashboard_tab:
+        dashboard.show()
+    with upload_tab:
+        show_upload()
+    with recheck_tab:
+        show_recheck()
+    with sent_tab:
+        show_sent()
+
+
+if __name__ == "__main__":  # true when Streamlit runs this file; false when a test imports it, so nothing is drawn then
+    main()
