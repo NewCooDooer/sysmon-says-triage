@@ -125,10 +125,17 @@ def share_safe_log(events, free_text=False):
     """The log's events as JSON text with every value scrubbed, and what the self-check found (no whole names = safe).
     Only values are scrubbed and checked, never field names such as "User": a user called "user" must not rename them."""
     key = key_for(find_private(events))
-    kept = [{"id": event["id"], "time": event["time"], "computer": scrub(event["computer"], key),
-             "fields": {name: scrub(value, key) for name, value in event["fields"].items()
+    clean = {}  # each different value scrubbed once: a big log repeats the same values millions of times
+
+    def scrubbed(value):
+        if value not in clean:
+            clean[value] = scrub(value, key)
+        return clean[value]
+
+    kept = [{"id": event["id"], "time": event["time"], "computer": scrubbed(event["computer"]),
+             "fields": {name: scrubbed(value) for name, value in event["fields"].items()
                         if free_text or name not in FREE_TEXT}} for event in events]
-    values = "\n".join(event["computer"] + "\n" + "\n".join(event["fields"].values()) for event in kept)
+    values = "\n".join(clean.values())  # every different value in the copy, once, for the self-check
     return (json.dumps(kept, indent=1, ensure_ascii=False), *leftovers(values, key))  # the text, whole names, inside words
 
 

@@ -31,11 +31,13 @@ BACKGROUND = """<style>
 .stApp header { background: transparent; }
 </style>"""
 
-@st.cache_data  # remember the answer for the same file, so the log is read once, not on every rerun
-def load(file_bytes):
-    """Read an uploaded log. The reading library needs a file on disk, so the upload is written to a temporary file first."""
+@st.cache_resource(max_entries=2)  # remember the events of the last two logs, so a log is read once, not on every rerun
+def load(file_id, _file_bytes):
+    """Read an uploaded log. The reading library needs a file on disk, so the upload is written to a temporary file first.
+    The log is remembered by its upload id; the _ in _file_bytes tells Streamlit not to scan the whole file to recognise it,
+    and cache_resource gives back the same events each time instead of a copy. Nothing changes the events once read."""
     with tempfile.NamedTemporaryFile(suffix=".evtx", delete=False) as temp:
-        temp.write(file_bytes)
+        temp.write(_file_bytes)
     try:
         return read_log.read_events(temp.name)
     finally:
@@ -186,7 +188,15 @@ def show_share_safe(events):
     if free_text:
         st.warning("Command lines can hold things no rule recognises, such as a password typed as an argument. They are "
                    "scrubbed of known names only, and the self-check can only prove that known names are gone.")
-    dashboard.offer(*export.share_safe_log(events, free_text), "share-safe-log.json")  # *: its three results as three inputs
+    made = st.session_state["share_safe"]  # made once per log and checkbox setting: a big log takes a while
+    if free_text not in made and st.button("Make the share-safe copy"):
+        with st.spinner("Replacing names and checking the result..."):
+            made[free_text] = export.share_safe_log(events, free_text)
+        st.rerun()  # draw the page again: the download replaces the button
+    if free_text in made:
+        dashboard.offer(*made[free_text], "share-safe-log.json")  # *: its three results as three inputs
+    if not export.KEY_FILE.exists():
+        return  # no stand-in has been made yet, so there is no key to show
     with st.expander("The key: which stand-in is which name (stays on this computer)"):
         key = json.loads(export.KEY_FILE.read_text())
         st.table([{"Stand-in": standin, "Original": original} for original, standin in sorted(key.items(), key=lambda kv: kv[1])])
@@ -279,7 +289,8 @@ def show_upload():
         st.session_state["log_id"] = upload.file_id
         st.session_state["failed"] = []
         st.session_state["history"] = None
-    events = load(upload.getvalue())
+        st.session_state["share_safe"] = {}
+    events = load(upload.file_id, upload.getvalue())
     if not events:
         st.warning("This file has no Sysmon events in it.")
         return

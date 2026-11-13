@@ -2,7 +2,7 @@
 
 import xml.etree.ElementTree as ET
 
-from Evtx.Evtx import Evtx
+from evtx import PyEvtxParser
 
 # Every tag in the event's XML lives in this "namespace" (a long name prefix), so searches must include it.
 NS = {"e": "http://schemas.microsoft.com/win/2004/08/events/event"}
@@ -61,20 +61,22 @@ def event_from_xml(xml_text):
         fields[data.get("Name")] = data.text or ""  # an empty field comes back as None, so use "" instead
     return {
         "id": int(system.find("e:EventID", NS).text),
-        "time": system.find("e:TimeCreated", NS).get("SystemTime"),
+        # "2023-12-14T03:42:39.407084Z" becomes "2023-12-14 03:42:39.407084+00:00", the style history already holds:
+        # history compares times as text, so every time must be written the same way.
+        "time": system.find("e:TimeCreated", NS).get("SystemTime").replace("T", " ").replace("Z", "+00:00"),
         "computer": system.find("e:Computer", NS).text or "",
         "fields": fields,
     }
 
 
 def read_events(path):
-    """Every Sysmon event in the .evtx file at `path`, oldest first."""
+    """Every Sysmon event in the .evtx file at `path`, in the file's order. The evtx library is written in Rust, so even
+    a log of several hundred megabytes is read in seconds; each record comes back as its XML text, under "data"."""
     events = []
-    with Evtx(path) as log:
-        for record in log.records():
-            event = event_from_xml(record.xml())
-            if event is not None:
-                events.append(event)
+    for record in PyEvtxParser(path).records():
+        event = event_from_xml(record["data"])
+        if event is not None:
+            events.append(event)
     return events
 
 
