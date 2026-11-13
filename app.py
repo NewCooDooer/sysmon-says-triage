@@ -131,7 +131,7 @@ def show_recheck():
     if dashboard.newly_flagged(changed):
         st.badge(f"{len(dashboard.newly_flagged(changed))} now flagged", color="red")
     if changed:
-        st.dataframe(dashboard.change_table(changed), hide_index=True)
+        dashboard.show_table(dashboard.change_table(changed))
     else:
         st.write("No verdict has changed yet: each value's newest two answers have the same label.")
 
