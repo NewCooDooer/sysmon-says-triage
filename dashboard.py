@@ -60,6 +60,16 @@ def change_table(changed):
             for c in changed]
 
 
+def show_table(rows):
+    """Draw rows as a table. Where there is a "Why" column, rows are taller, so its long text wraps instead of being
+    cut off. An empty cell (such as "New in latest log" for a first upload) shows as blank, not "None"."""
+    wraps = [name for name in ("Why", "Why now") if rows and name in rows[0]]
+    narrow = [name for name in ("Value", "Program") if wraps and name in rows[0]]  # long values wrap too, to make room
+    widths = {name: 520 for name in wraps} | {name: "medium" for name in narrow}
+    st.dataframe(rows, hide_index=True, placeholder="", row_height=96 if wraps else None,  # 96 pixels: about four lines
+                 column_config={name: st.column_config.TextColumn(width=width) for name, width in widths.items()})
+
+
 def offer(content, whole, inside, file_name):
     """A download button, but only if no name is left as a whole name; otherwise say which (on this screen only)."""
     if whole:
@@ -119,13 +129,13 @@ def show_overview(names, answers):
     st.space("medium")
     with st.container(border=True):
         st.subheader("Computers, most flagged first")
-        st.dataframe(rows, hide_index=True)
+        show_table(rows)
     st.space("medium")
     with st.container(border=True):
         st.subheader("Flagged on several computers")
         st.caption("A spread, not a one-off: one verdict, several machines.")
         if spread:
-            st.dataframe(overview_table(spread, answers, programs), hide_index=True)
+            show_table(overview_table(spread, answers, programs))
         else:
             st.write("Nothing flagged is on more than one computer.")
     st.space("medium")
@@ -134,7 +144,7 @@ def show_overview(names, answers):
         st.caption("Normal software is on most machines; something only one computer has is worth a look. "
                    "Flagged first, then newest.")
         with st.expander(f"Programs, domains and IP addresses only one computer has ({len(rare)})"):
-            st.dataframe(overview_table(rare, answers, programs), hide_index=True)
+            show_table(overview_table(rare, answers, programs))
 
 
 def show():
@@ -167,7 +177,7 @@ def show():
         st.subheader("Flagged by the portals")
         if flagged:
             st.badge(f"{len(flagged)} flagged", color="red")
-            st.dataframe(table(flagged, answers, programs), hide_index=True)
+            show_table(table(flagged, answers, programs))
         else:
             st.badge("Nothing flagged", color="green")
             st.caption("Only items a portal has checked can be flagged; checking happens in the \"Add a log\" tab.")
@@ -179,7 +189,7 @@ def show():
         if newly_flagged(changed):
             st.badge(f"{len(newly_flagged(changed))} now flagged", color="red")
         if changed:
-            st.dataframe(change_table(changed), hide_index=True)
+            show_table(change_table(changed))
         else:
             st.write('No verdict has changed. Older verdicts are checked again in the "Re-check" tab.')
 
@@ -189,14 +199,14 @@ def show():
         if first:
             st.write("This is the first upload for this computer, so everything is new.")
         else:
-            st.dataframe(table(new, answers, programs), hide_index=True)
+            show_table(table(new, answers, programs))
 
     st.space("medium")
     with st.container(border=True):  # a framed box per section
         st.subheader("Gone quiet")
         st.caption("Seen in earlier uploads, but not in the latest one.")
         if gone:
-            st.dataframe(table(gone, answers, programs), hide_index=True)
+            show_table(table(gone, answers, programs))
         else:
             st.write("Nothing has gone quiet.")
 
