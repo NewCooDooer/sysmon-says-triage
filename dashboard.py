@@ -26,10 +26,15 @@ def verdict(sighting, answers):
     return answers.get(sighting["kind"], {}).get(sighting["value"], {}).get("label", "")
 
 
+def why(sighting, answers):
+    """The portal's own reasons for its newest verdict, in one line, or "" if no portal has checked it."""
+    return "; ".join(answers.get(sighting["kind"], {}).get(sighting["value"], {}).get("reasons", []))
+
+
 def table(items, answers, programs):
     """Items as rows for a table. A hash also names the program it belongs to, so the analyst knows what to look at."""
     return [{"Kind": s["kind"], "Value": s["value"], "Program": programs.get(s["value"], ""),  # only a hash is a key
-             "Portal's verdict": verdict(s, answers),
+             "Portal's verdict": verdict(s, answers), "Why": why(s, answers),
              "First seen": s["first_seen"][:16], "Last seen": s["last_seen"][:16], "Uploads": s["uploads"]}
             for s in items]
 
@@ -46,10 +51,11 @@ def newly_flagged(changed):
 
 
 def change_table(changed):
-    """Changed verdicts as rows: before, now, and the context: which computers saw the value, and when last."""
+    """Changed verdicts as rows: before, now and why, and the context: which computers saw the value, and when last."""
     def said(answer):
         return f"{answer['label']} (score {answer['score']}, {answer['checked_at'][:10]})"
     return [{"Kind": c["kind"], "Value": c["value"], "Before": said(c["before"]), "Now": said(c["now"]),
+             "Why now": "; ".join(json.loads(c["now"]["reasons"])),  # the portal's reasons for the new verdict
              "Seen on": ", ".join(f"{s['computer']} (last {s['last_seen'][:16]})" for s in history.seen_on(c["kind"], c["value"]))}
             for c in changed]
 
@@ -92,7 +98,8 @@ def fleet(items, answers):
 def overview_table(items, answers, programs):
     """Items from every computer as rows, with how many computers have each and which ones."""
     return [{"Kind": i["kind"], "Value": i["value"], "Program": programs.get(i["value"], ""),
-             "Portal's verdict": verdict(i, answers), "Computers": i["computers"], "Seen on": i["names"],
+             "Portal's verdict": verdict(i, answers), "Why": why(i, answers),
+             "Computers": i["computers"], "Seen on": i["names"],
              "First seen": i["first_seen"][:16], "Last seen": i["last_seen"][:16]} for i in items]
 
 
